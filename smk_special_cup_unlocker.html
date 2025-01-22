@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMK Special Cup Unlocker</title>
+    <style>
+        body {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #C0C0C0;
+            color: black;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 640px;
+            margin: 20px auto;
+            background-color: white;
+            border: 2px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            text-decoration: underline;
+        }
+        p {
+            font-size: 14px;
+        }
+        input, button {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            border: 1px solid black;
+            padding: 5px;
+            background-color: #E0E0E0;
+        }
+        button {
+            cursor: pointer;
+            background-color: #C0C0C0;
+        }
+        a {
+            font-family: "Courier New", Courier, monospace;
+            color: blue;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            border-top: 1px solid black;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SMK Special Cup Unlocker</h1>
+        
+        <input type="file" id="fileInput" accept=".smc" /><br>
+        <button id="modifyButton">Modify and Download</button>
+        <p id="status"></p>
+    </div>
+    <footer>
+        <p>Copyright (C) 2025 Matthew Merchant</p>
+        <p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
+        <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.</p>
+        <p>You should have received a copy of the GNU General Public License along with this program. If not, see <a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.</p>
+        <p>Special thanks to R4M0N.</p>
+    </footer>
+
+    <script>
+        document.getElementById('modifyButton').addEventListener('click', async () => {
+            const fileInput = document.getElementById('fileInput');
+            const status = document.getElementById('status');
+
+            // Check if a file is uploaded
+            if (!fileInput.files[0]) {
+                status.textContent = "Please upload a file first.";
+                return;
+            }
+
+            const file = fileInput.files[0];
+
+            // Read the file as a binary array
+            const arrayBuffer = await file.arrayBuffer();
+            const byteArray = new Uint8Array(arrayBuffer);
+
+            // List of changes
+            const changes = [
+                { offset: 0x4F64E, expected: 0xD0, newValue: 0x80 },
+                { offset: 0x4F6CD, expected: 0xF0, newValue: 0xEA },
+                { offset: 0x4F6CE, expected: 0x33, newValue: 0xEA },
+                { offset: 0x4F6D9, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4F6DA, expected: 0x1E, newValue: 0xEA },
+                { offset: 0x4F6E5, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4F6E6, expected: 0x12, newValue: 0xEA },
+                { offset: 0x4F6F1, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4F6F2, expected: 0x06, newValue: 0xEA },
+                { offset: 0x4F723, expected: 0xD0, newValue: 0x80 },
+                { offset: 0x4F987, expected: 0xF0, newValue: 0xEA },
+                { offset: 0x4F988, expected: 0x06, newValue: 0xEA },
+                { offset: 0x4F9B1, expected: 0xF0, newValue: 0xEA },
+                { offset: 0x4F9B2, expected: 0x06, newValue: 0xEA },
+                { offset: 0x4FAA0, expected: 0xF0, newValue: 0xEA },
+                { offset: 0x4FAA1, expected: 0x35, newValue: 0xEA },
+                { offset: 0x4FAAC, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4FAAD, expected: 0x29, newValue: 0xEA },
+                { offset: 0x4FAB8, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4FAB9, expected: 0x1D, newValue: 0xEA },
+                { offset: 0x4FAC4, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4FAC5, expected: 0x11, newValue: 0xEA },
+                { offset: 0x4FB08, expected: 0xD0, newValue: 0x80 },
+                { offset: 0x4FB1D, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4FB1E, expected: 0xEB, newValue: 0xEA },
+                { offset: 0x4FB29, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4FB2A, expected: 0xDF, newValue: 0xEA },
+                { offset: 0x4FB35, expected: 0xD0, newValue: 0xEA },
+                { offset: 0x4FB36, expected: 0xD3, newValue: 0xEA }
+            ];
+
+            let modified = false;
+
+            // Apply each change
+            for (const { offset, expected, newValue } of changes) {
+                const adjustedOffsets = [
+                    offset,
+                    offset + 0x200, // Header offset adjustment
+                    offset - 0x200  // Possible misalignment
+                ];
+
+                for (const adjustedOffset of adjustedOffsets) {
+                    if (byteArray[adjustedOffset] === expected) {
+                        byteArray[adjustedOffset] = newValue;
+                        modified = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!modified) {
+                status.textContent = "Failed to modify the file. Ensure it's the correct ROM.";
+                return;
+            }
+
+            // Create a new Blob for the modified file
+            const modifiedBlob = new Blob([byteArray], { type: 'application/octet-stream' });
+
+            // Generate a download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(modifiedBlob);
+            downloadLink.download = `modified_${file.name}`;
+            downloadLink.textContent = "Download Modified File";
+            downloadLink.style.display = "block";
+
+            // Display the download link
+            status.textContent = "Modification successful!";
+            status.appendChild(downloadLink);
+        });
+    </script>
+</body>
+</html>
