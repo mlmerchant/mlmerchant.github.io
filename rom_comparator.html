@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROM Comparator</title>
+    <style>
+        body {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #C0C0C0;
+            color: black;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: white;
+            border: 2px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            text-decoration: underline;
+        }
+        input, button {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            border: 1px solid black;
+            padding: 5px;
+            background-color: #E0E0E0;
+        }
+        button {
+            cursor: pointer;
+            background-color: #C0C0C0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 5px;
+            text-align: left;
+        }
+        th {
+            background-color: #E0E0E0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ROM Comparator</h1>
+        <p>Upload two ROM files to compare their differences.</p>
+        <input type="file" id="rom1" accept=".smc" />
+        <input type="file" id="rom2" accept=".smc" /><br>
+        <button id="compareButton">Compare ROMs</button>
+        <p id="status"></p>
+        <table id="differencesTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Address</th>
+                    <th>Value in ROM 1</th>
+                    <th>Value in ROM 2</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        document.getElementById('compareButton').addEventListener('click', async () => {
+            const rom1Input = document.getElementById('rom1');
+            const rom2Input = document.getElementById('rom2');
+            const status = document.getElementById('status');
+            const table = document.getElementById('differencesTable');
+            const tableBody = table.querySelector('tbody');
+
+            // Clear previous results
+            tableBody.innerHTML = "";
+            table.style.display = "none";
+            status.textContent = "";
+
+            // Ensure both files are selected
+            if (!rom1Input.files[0] || !rom2Input.files[0]) {
+                status.textContent = "Please upload both ROM files.";
+                return;
+            }
+
+            const rom1 = rom1Input.files[0];
+            const rom2 = rom2Input.files[0];
+
+            // Read both files as binary arrays
+            const rom1Buffer = await rom1.arrayBuffer();
+            const rom2Buffer = await rom2.arrayBuffer();
+
+            const rom1Bytes = new Uint8Array(rom1Buffer);
+            const rom2Bytes = new Uint8Array(rom2Buffer);
+
+            // Ensure ROMs are the same size
+            if (rom1Bytes.length !== rom2Bytes.length) {
+                status.textContent = "The ROM files are not the same size and cannot be compared.";
+                return;
+            }
+
+            let differencesFound = 0;
+
+            // Compare byte by byte
+            for (let i = 0; i < rom1Bytes.length; i++) {
+                if (rom1Bytes[i] !== rom2Bytes[i]) {
+                    differencesFound++;
+
+                    // Add a row to the table for this difference
+                    const row = document.createElement('tr');
+
+                    const addressCell = document.createElement('td');
+                    addressCell.textContent = `0x${i.toString(16).toUpperCase().padStart(6, '0')}`;
+
+                    const rom1Cell = document.createElement('td');
+                    rom1Cell.textContent = rom1Bytes[i].toString(16).toUpperCase().padStart(2, '0');
+
+                    const rom2Cell = document.createElement('td');
+                    rom2Cell.textContent = rom2Bytes[i].toString(16).toUpperCase().padStart(2, '0');
+
+                    row.appendChild(addressCell);
+                    row.appendChild(rom1Cell);
+                    row.appendChild(rom2Cell);
+
+                    tableBody.appendChild(row);
+                }
+            }
+
+            if (differencesFound > 0) {
+                status.textContent = `${differencesFound} differences found.`;
+                table.style.display = "table";
+            } else {
+                status.textContent = "No differences found. The ROMs are identical.";
+            }
+        });
+    </script>
+</body>
+</html>
