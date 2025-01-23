@@ -67,7 +67,6 @@
         <p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
         <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.</p>
         <p>You should have received a copy of the GNU General Public License along with this program. If not, see <a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.</p>
-        <p>Special thanks to R4M0N.</p>
     </footer>
 
     <script>
@@ -87,34 +86,22 @@
             const arrayBuffer = await file.arrayBuffer();
             const byteArray = new Uint8Array(arrayBuffer);
 
-            // Define the signature to find and its associated changes
-            const signature = [0xBE, 0x54, 0x01, 0xF0, 0x01]; // Signature pattern
+            // Define the changes and offsets
             const changes = {
-                0x0000: 0x22, 0x0001: 0x40, 0x0002: 0xC8, 0x0003: 0x85, 0x0004: 0xA4,
-                0x0005: 0xB8, 0x0006: 0xEA, 0x0007: 0xEA, 0x0008: 0xEA, 0x0009: 0xEA,
-                0x0400: 0xC0, 0x0403: 0xF0, 0x0404: 0x03, 0x0405: 0xA0, 0x0407: 0x01,
-                0x041B: 0xAD, 0x0436: 0x6B
+                0x01B989: 0x22, 0x01B98A: 0x40, 0x01B98B: 0xC8, 0x01B98C: 0x85, 0x01B98D: 0xA4,
+                0x01B98E: 0xB8, 0x01B98F: 0xEA, 0x01B990: 0xEA, 0x01B991: 0xEA, 0x01B992: 0xEA,
+                0x01B993: 0xEA, 0x01B994: 0xEA, 0x01B995: 0xEA, 0x01B996: 0xEA, 0x05C840: 0xC0,
+                0x05C843: 0xF0, 0x05C844: 0x03, 0x05C845: 0xA0, 0x05C847: 0x01, 0x05C848: 0xC2,
+                0x05C849: 0x20, 0x05C84A: 0xB9, 0x05C84B: 0xEA, 0x05C84C: 0x10, 0x05C84D: 0x8D,
+                0x05C84E: 0x04, 0x05C84F: 0x42, 0x05C850: 0xA9, 0x05C851: 0x0A, 0x05C853: 0xE2,
+                0x05C854: 0x20, 0x05C855: 0x8D, 0x05C856: 0x06, 0x05C857: 0x42, 0x05C858: 0xEA,
+                0x05C859: 0xEA, 0x05C85A: 0xEA, 0x05C85B: 0xEA, 0x05CA1B: 0xAD, 0x05CA36: 0x6B
             };
 
-            // Find the signature in the ROM
-            let startOffset = -1;
-            for (let i = 0; i < byteArray.length - signature.length; i++) {
-                if (signature.every((byte, index) => byteArray[i + index] === byte)) {
-                    startOffset = i; // Found the signature
-                    break;
-                }
-            }
-
-            if (startOffset === -1) {
-                status.textContent = "Signature not found in the ROM. Modification aborted.";
-                return;
-            }
-
-            // Apply changes at the appropriate offsets
+            // Apply all changes
             let modificationsMade = 0;
-            for (const [relativeOffset, value] of Object.entries(changes)) {
-                const targetOffset = startOffset + parseInt(relativeOffset);
-                byteArray[targetOffset] = value;
+            for (const [offset, value] of Object.entries(changes)) {
+                byteArray[parseInt(offset)] = value;
                 modificationsMade++;
             }
 
