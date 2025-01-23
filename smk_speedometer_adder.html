@@ -58,7 +58,6 @@
 <body>
     <div class="container">
         <h1>SMK Speedometer Adder</h1>
-        
         <input type="file" id="fileInput" accept=".smc" /><br>
         <button id="modifyButton">Modify and Download</button>
         <p id="status"></p>
@@ -88,138 +87,48 @@
             const arrayBuffer = await file.arrayBuffer();
             const byteArray = new Uint8Array(arrayBuffer);
 
-            // List of changes
-            const changes = [
-                { offset: 0x01B989, expected: 0xBE, newValue: 0x22 },
-                { offset: 0x01B98A, expected: 0x54, newValue: 0x40 },
-                { offset: 0x01B98B, expected: 0x01, newValue: 0xC8 },
-                { offset: 0x01B98C, expected: 0xF0, newValue: 0x85 },
-                { offset: 0x01B98D, expected: 0x01, newValue: 0xA4 },
-                { offset: 0x01B98E, expected: 0xCA, newValue: 0xB8 },
-                { offset: 0x01B98F, expected: 0xBD, newValue: 0xEA },
-                { offset: 0x01B990, expected: 0x7B, newValue: 0xEA },
-                { offset: 0x01B991, expected: 0xB9, newValue: 0xEA },
-                { offset: 0x01B992, expected: 0xA6, newValue: 0xEA },
-                { offset: 0x01B993, expected: 0xCE, newValue: 0xEA },
-                { offset: 0x01B994, expected: 0x9D, newValue: 0xEA },
-                { offset: 0x01B995, expected: 0x4E, newValue: 0xEA },
-                { offset: 0x01B996, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C840, expected: 0x00, newValue: 0xC0 },
-                { offset: 0x05C843, expected: 0x00, newValue: 0xF0 },
-                { offset: 0x05C844, expected: 0x00, newValue: 0x03 },
-                { offset: 0x05C845, expected: 0x00, newValue: 0xA0 },
-                { offset: 0x05C847, expected: 0x00, newValue: 0x01 },
-                { offset: 0x05C848, expected: 0x00, newValue: 0xC2 },
-                { offset: 0x05C849, expected: 0x00, newValue: 0x20 },
-                { offset: 0x05C84A, expected: 0x00, newValue: 0xB9 },
-                { offset: 0x05C84B, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C84C, expected: 0x00, newValue: 0x10 },
-                { offset: 0x05C84D, expected: 0x00, newValue: 0x8D },
-                { offset: 0x05C84E, expected: 0x00, newValue: 0x04 },
-                { offset: 0x05C84F, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05C850, expected: 0x00, newValue: 0xA9 },
-                { offset: 0x05C851, expected: 0x00, newValue: 0x0A },
-                { offset: 0x05C853, expected: 0x00, newValue: 0xE2 },
-                { offset: 0x05C854, expected: 0x00, newValue: 0x20 },
-                { offset: 0x05C855, expected: 0x00, newValue: 0x8D },
-                { offset: 0x05C856, expected: 0x00, newValue: 0x06 },
-                { offset: 0x05C857, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05C858, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C859, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C85A, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C85B, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C85C, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C85D, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C85E, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C85F, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05C860, expected: 0x00, newValue: 0xAD },
-                { offset: 0x05C861, expected: 0x00, newValue: 0x16 },
-                { offset: 0x05C862, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05C863, expected: 0x00, newValue: 0xAA },
-                { offset: 0x05C864, expected: 0x00, newValue: 0xBF },
-                { offset: 0x05C865, expected: 0x00, newValue: 0x7B },
-                { offset: 0x05C866, expected: 0x00, newValue: 0xB9 },
-                { offset: 0x05C867, expected: 0x00, newValue: 0xC1 },
-                { offset: 0x05C868, expected: 0x00, newValue: 0x48 },
-                { offset: 0x05C869, expected: 0x00, newValue: 0x4C },
-                { offset: 0x05C86B, expected: 0x00, newValue: 0xCA },
-                { offset: 0x05CA00, expected: 0x00, newValue: 0xA2 },
-                { offset: 0x05CA01, expected: 0x00, newValue: 0x03 },
-                { offset: 0x05CA03, expected: 0x00, newValue: 0xC2 },
-                { offset: 0x05CA04, expected: 0x00, newValue: 0x20 },
-                { offset: 0x05CA05, expected: 0x00, newValue: 0xAD },
-                { offset: 0x05CA06, expected: 0x00, newValue: 0x14 },
-                { offset: 0x05CA07, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05CA08, expected: 0x00, newValue: 0x8D },
-                { offset: 0x05CA09, expected: 0x00, newValue: 0x04 },
-                { offset: 0x05CA0A, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05CA0B, expected: 0x00, newValue: 0xA9 },
-                { offset: 0x05CA0C, expected: 0x00, newValue: 0x0A },
-                { offset: 0x05CA0E, expected: 0x00, newValue: 0xE2 },
-                { offset: 0x05CA0F, expected: 0x00, newValue: 0x20 },
-                { offset: 0x05CA10, expected: 0x00, newValue: 0x8D },
-                { offset: 0x05CA11, expected: 0x00, newValue: 0x06 },
-                { offset: 0x05CA12, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05CA13, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05CA14, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05CA15, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05CA16, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05CA17, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05CA18, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05CA19, expected: 0x00, newValue: 0xEA },
-                { offset: 0x05CA1A, expected: 0x00, newValue: 0xDA },
-                { offset: 0x05CA1B, expected: 0x00, newValue: 0xAD },
-                { offset: 0x05CA1C, expected: 0x00, newValue: 0x16 },
-                { offset: 0x05CA1D, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05CA1E, expected: 0x00, newValue: 0xAA },
-                { offset: 0x05CA1F, expected: 0x00, newValue: 0xBF },
-                { offset: 0x05CA20, expected: 0x00, newValue: 0x7B },
-                { offset: 0x05CA21, expected: 0x00, newValue: 0xB9 },
-                { offset: 0x05CA22, expected: 0x00, newValue: 0xC1 },
-                { offset: 0x05CA23, expected: 0x00, newValue: 0xFA },
-                { offset: 0x05CA24, expected: 0x00, newValue: 0x48 },
-                { offset: 0x05CA25, expected: 0x00, newValue: 0xCA },
-                { offset: 0x05CA26, expected: 0x00, newValue: 0xD0 },
-                { offset: 0x05CA27, expected: 0x00, newValue: 0xDB },
-                { offset: 0x05CA28, expected: 0x00, newValue: 0xA6 },
-                { offset: 0x05CA29, expected: 0x00, newValue: 0xCE },
-                { offset: 0x05CA2A, expected: 0x00, newValue: 0x68 },
-                { offset: 0x05CA2B, expected: 0x00, newValue: 0x95 },
-                { offset: 0x05CA2C, expected: 0x00, newValue: 0x42 },
-                { offset: 0x05CA2D, expected: 0x00, newValue: 0x68 },
-                { offset: 0x05CA2E, expected: 0x00, newValue: 0x95 },
-                { offset: 0x05CA2F, expected: 0x00, newValue: 0x46 },
-                { offset: 0x05CA30, expected: 0x00, newValue: 0x68 },
-                { offset: 0x05CA31, expected: 0x00, newValue: 0x95 },
-                { offset: 0x05CA32, expected: 0x00, newValue: 0x4A },
-                { offset: 0x05CA33, expected: 0x00, newValue: 0x68 },
-                { offset: 0x05CA34, expected: 0x00, newValue: 0x95 },
-                { offset: 0x05CA35, expected: 0x00, newValue: 0x4E },
-                { offset: 0x05CA36, expected: 0x00, newValue: 0x6B }
-            ];
+            // Define the ROM changes
+            const changes = {
+                0x01B989: 0x22, 0x01B98A: 0x40, 0x01B98B: 0xC8, 0x01B98C: 0x85, 0x01B98D: 0xA4,
+                0x01B98E: 0xB8, 0x01B98F: 0xEA, 0x01B990: 0xEA, 0x01B991: 0xEA, 0x01B992: 0xEA,
+                0x01B993: 0xEA, 0x01B994: 0xEA, 0x01B995: 0xEA, 0x01B996: 0xEA, 0x05C840: 0xC0,
+                0x05C843: 0xF0, 0x05C844: 0x03, 0x05C845: 0xA0, 0x05C847: 0x01, 0x05C848: 0xC2,
+                0x05C849: 0x20, 0x05C84A: 0xB9, 0x05C84B: 0xEA, 0x05C84C: 0x10, 0x05C84D: 0x8D,
+                0x05C84E: 0x04, 0x05C84F: 0x42, 0x05C850: 0xA9, 0x05C851: 0x0A, 0x05C853: 0xE2,
+                0x05C854: 0x20, 0x05C855: 0x8D, 0x05C856: 0x06, 0x05C857: 0x42, 0x05C858: 0xEA,
+                0x05C859: 0xEA, 0x05C85A: 0xEA, 0x05C85B: 0xEA, 0x05CA1B: 0xAD, 0x05CA36: 0x6B
+            };
 
             let modified = false;
 
-            // Apply each change
-            for (const { offset, expected, newValue } of changes) {
-                const adjustedOffsets = [
-                    offset,
-                    offset + 0x200, // Header offset adjustment
-                    offset - 0x200  // Possible misalignment
-                ];
-
-                for (const adjustedOffset of adjustedOffsets) {
-                    if (byteArray[adjustedOffset] === expected) {
-                        byteArray[adjustedOffset] = newValue;
-                        modified = true;
-                        break;
-                    }
+            // Apply the changes
+            for (const [offset, value] of Object.entries(changes)) {
+                const intOffset = parseInt(offset);
+                if (byteArray[intOffset] !== value) {
+                    byteArray[intOffset] = value;
+                    modified = true;
                 }
             }
 
             if (!modified) {
-                status.textContent = "Failed to modify the file. Ensure it's the correct ROM.";
+                status.textContent = "No changes were made, the ROM already has these modifications.";
                 return;
             }
 
-            // Create
+            // Create a new Blob for the modified file
+            const modifiedBlob = new Blob([byteArray], { type: 'application/octet-stream' });
+
+            // Generate a download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(modifiedBlob);
+            downloadLink.download = `speedometer_${file.name}`;
+            downloadLink.textContent = "Download Modified ROM";
+            downloadLink.style.display = "block";
+
+            // Display the download link
+            status.textContent = "Modification successful!";
+            status.appendChild(downloadLink);
+        });
+    </script>
+</body>
+</html>
