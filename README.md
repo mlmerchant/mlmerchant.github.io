@@ -5,4 +5,7 @@
 
 [SMK for SNES - Special Cup Unlocker](smk_special_cup_unlocker.html)
 
+[SMK for SNES - Speedometer Adder](smk_speedometer_adder)
+
 [Compare ROMs](rom_comparator.html)
+
