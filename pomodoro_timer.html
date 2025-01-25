@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro Timer</title>
+  <style>
+    body {
+      background-color: #222;
+      color: #0f0;
+      font-family: "Courier New", Courier, monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      text-align: center;
+      border: 3px solid #0f0;
+      padding: 20px;
+      border-radius: 15px;
+      width: 300px;
+      box-shadow: 0 0 20px #0f0;
+    }
+
+    .timer {
+      font-size: 3rem;
+      margin: 20px 0;
+    }
+
+    button {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1.2rem;
+      color: #222;
+      background-color: #0f0;
+      border: none;
+      border-radius: 5px;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    button:hover {
+      background-color: #0c0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Pomodoro Timer</h1>
+    <div class="timer" id="timer">25:00</div>
+    <button onclick="startTimer()">Start</button>
+    <button onclick="resetTimer()">Reset</button>
+  </div>
+
+  <script>
+    let timer;
+    let timeRemaining = 25 * 60; // 25 minutes in seconds
+    let isRunning = false;
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimerDisplay() {
+      document.getElementById('timer').textContent = formatTime(timeRemaining);
+    }
+
+    function startTimer() {
+      if (isRunning) return; // Prevent multiple intervals
+
+      isRunning = true;
+      timer = setInterval(() => {
+        if (timeRemaining > 0) {
+          timeRemaining--;
+          updateTimerDisplay();
+        } else {
+          clearInterval(timer);
+          isRunning = false;
+          alert('Time's up! Take a break.');
+        }
+      }, 1000);
+    }
+
+    function resetTimer() {
+      clearInterval(timer);
+      isRunning = false;
+      timeRemaining = 25 * 60;
+      updateTimerDisplay();
+    }
+
+    updateTimerDisplay();
+  </script>
+</body>
+</html>
