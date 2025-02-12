@@ -13,8 +13,9 @@
     gameContainer.style.width = "800px";
     gameContainer.style.height = "600px";
 
-    // Bright blue sky on top and darker blue underwater on bottom
-    gameContainer.style.background = "linear-gradient(to bottom, #1E90FF 50%, #00008B 50%)";
+    // Top 10% is sky, remaining 90% is ocean
+    // This means from 0% to 10% is bright sky, then a hard transition to dark blue.
+    gameContainer.style.background = "linear-gradient(to bottom, #1E90FF 10%, #00008B 10%)";
 
     gameContainer.style.border = "2px solid black";
     gameContainer.style.overflow = "hidden";
@@ -23,7 +24,8 @@
     // Create the ship at the top
     const ship = document.createElement("div");
     ship.style.position = "absolute";
-    // Instead of bottom = 0, we place it near the top
+    // Since the sky ends at 10% of 600px = 60px,
+    // placing the ship near the top keeps it "above water"
     ship.style.top = "20px";
     ship.style.left = "50%";
     ship.style.width = "80px";
@@ -31,8 +33,9 @@
     ship.style.backgroundColor = "gray";
 
     // Use clip-path to get a rough "WW2 sub hunter" silhouette
-    // Feel free to adjust the polygon to get a shape you like
-    ship.style.clipPath = "polygon(0% 100%, 10% 70%, 30% 60%, 70% 60%, 90% 70%, 100% 100%, 100% 100%, 0% 100%)";
+    // Adjust the polygon as desired
+    ship.style.clipPath =
+      "polygon(0% 100%, 10% 70%, 30% 60%, 70% 60%, 90% 70%, 100% 100%, 100% 100%, 0% 100%)";
 
     ship.style.transform = "translateX(-50%)";
     gameContainer.appendChild(ship);
@@ -70,6 +73,9 @@
     resetButton.textContent = "Reset";
     controlPanel.appendChild(resetButton);
 
+    // Track submarines to remove intervals when destroyed
+    const subs = new Set();
+
     startButton.addEventListener("click", () => {
       if (!gameOver) {
         createSubmarine();
@@ -80,39 +86,59 @@
       location.reload();
     });
 
-    // Creates a submarine with a rounded shape
+    // Helper function to remove submarine and its interval
+    function removeSubmarine(sub) {
+      if (sub.moveSubmarineInterval) {
+        clearInterval(sub.moveSubmarineInterval);
+      }
+      sub.remove();
+      subs.delete(sub);
+    }
+
     function createSubmarine() {
       const sub = document.createElement("div");
       sub.style.position = "absolute";
       sub.style.width = "60px";
       sub.style.height = "20px";
       sub.style.backgroundColor = "red";
-      // Make it more 'pill-shaped' by rounding corners
+      // Make sub "pill-shaped"
       sub.style.borderRadius = "10px";
 
-      // Place the sub somewhere in the bottom half (the underwater region)
-      // Adjust the spawn logic as desired
+      // Place the sub somewhere in the bottom half
       sub.style.bottom = `${Math.random() * 200 + 300}px`;
       sub.style.left = `${Math.random() > 0.5 ? "0px" : "740px"}`;
       sub.dataset.direction = sub.style.left === "0px" ? "right" : "left";
-      gameContainer.appendChild(sub);
 
-      const moveSubmarine = setInterval(() => {
+      gameContainer.appendChild(sub);
+      subs.add(sub);
+
+      // Move submarine at intervals
+      const moveInterval = setInterval(() => {
         if (gameOver) {
-          clearInterval(moveSubmarine);
+          clearInterval(moveInterval);
           sub.remove();
           return;
         }
+
         const subLeft = parseInt(sub.style.left);
+
+        // Reverse direction if it hits left or right boundary
         if (subLeft <= 0) sub.dataset.direction = "right";
         if (subLeft >= 740) sub.dataset.direction = "left";
-        sub.style.left = `${subLeft + (sub.dataset.direction === "right" ? 2 : -2)}px`;
+
+        // Move left or right
+        sub.style.left = `${
+          subLeft + (sub.dataset.direction === "right" ? 2 : -2)
+        }px`;
 
         // Occasionally shoot a bullet upward
         if (Math.random() < 0.01) {
-          createBullet(subLeft + 30, parseInt(sub.style.bottom));
+          createBullet(parseInt(sub.style.left) + 30, parseInt(sub.style.bottom));
         }
       }, 20);
+
+      // Store the submarine's interval on the element itself
+      sub.moveSubmarineInterval = moveInterval;
     }
 
     // Submarine bullet
@@ -140,6 +166,7 @@
           bullet.style.bottom = `${bulletBottom + 5}px`;
         }
 
+        // Check collision with the ship
         const shipRect = ship.getBoundingClientRect();
         const bulletRect = bullet.getBoundingClientRect();
         if (
@@ -159,14 +186,14 @@
     function createDepthCharge(x) {
       if (activeDepthCharges >= depthChargeLimit) return;
       activeDepthCharges++;
+
       const charge = document.createElement("div");
       charge.style.position = "absolute";
       charge.style.width = "10px";
       charge.style.height = "10px";
       charge.style.backgroundColor = "gray";
       charge.style.left = `${x}px`;
-
-      // Since the ship is at the top, we'll drop from the ship's bottom edge
+      // Drop from just below the ship's bottom edge
       charge.style.top = "50px";
       gameContainer.appendChild(charge);
 
@@ -177,19 +204,20 @@
           return;
         }
         const chargeTop = parseInt(charge.style.top);
-        // If it goes below the container bottom
+
+        // If it goes out of the container (bottom > 600)
         if (chargeTop >= 600) {
           clearInterval(moveCharge);
           charge.remove();
           activeDepthCharges--;
-        } else {
-          // Move down from top to bottom
-          charge.style.top = `${chargeTop + 5}px`;
+          return;
         }
 
-        // Check collision with each submarine
-        document.querySelectorAll("div").forEach((sub) => {
-          if (sub === charge || sub === ship || !sub.dataset.direction) return;
+        // Move the charge down from top to bottom
+        charge.style.top = `${chargeTop + 5}px`;
+
+        // Check collision with submarines
+        for (const sub of subs) {
           const subRect = sub.getBoundingClientRect();
           const chargeRect = charge.getBoundingClientRect();
           if (
@@ -198,20 +226,30 @@
             chargeRect.top < subRect.bottom &&
             chargeRect.bottom > subRect.top
           ) {
+            // Sub hit: remove sub & charge, increase score
             clearInterval(moveCharge);
             charge.remove();
-            sub.remove();
             activeDepthCharges--;
+
+            removeSubmarine(sub); // properly remove sub & its interval
+
             score++;
             scoreDisplay.textContent = `Score: ${score}`;
+            return; // exit the for-loop so we don't double-remove
           }
-        });
+        }
       }, 20);
     }
 
     // End the game
     function endGame() {
       gameOver = true;
+
+      // Stop all submarines
+      for (const sub of subs) {
+        clearInterval(sub.moveSubmarineInterval);
+      }
+
       alert(`Game Over! Final Score: ${score}`);
       location.reload();
     }
@@ -220,6 +258,7 @@
     document.addEventListener("keydown", (e) => {
       if (gameOver) return;
       const shipLeft = parseInt(ship.style.left);
+
       if (e.key === "ArrowLeft" && shipLeft > 0) {
         ship.style.left = `${shipLeft - shipSpeed}px`;
       } else if (e.key === "ArrowRight" && shipLeft < 750) {
@@ -233,6 +272,7 @@
     setInterval(() => {
       if (!gameOver) {
         createSubmarine();
+        // Decrease spawn interval over time, down to a floor of 5000ms
         subSpawnInterval = Math.max(subSpawnInterval - 1000, 5000);
       }
     }, subSpawnInterval);
