@@ -35,14 +35,13 @@
     gameContainer.appendChild(ship);
 
     // Variables for ship movement
-    let shipVelocity = 0;             // Current horizontal velocity
-    const acceleration = 0.3;         // How quickly the ship speeds up when an arrow is held
-    const maxSpeed = 10;             // Maximum speed left or right
+    let shipVelocity = 0;             
+    const acceleration = 0.3;         
+    const maxSpeed = 10;             
     let leftArrowDown = false;
     let rightArrowDown = false;
 
-    // Ship boundaries so it doesn't go off screen
-    // Ship is ~80px wide, container is 800px wide => max left ~720
+    // Bounds for ship so it doesn't go off screen
     const shipMinX = 0;
     const shipMaxX = 720;
 
@@ -51,7 +50,8 @@
     let depthChargeLimit = 5;
     let score = 0;
     let gameOver = false;
-    let subSpawnInterval = 15000;
+    // Start sub spawns at 5000 ms (1/3 of original 15000)
+    let subSpawnInterval = 5000; 
     const subs = new Set(); // track submarines for removal
 
     // Score display
@@ -157,9 +157,13 @@
       sub.style.backgroundColor = "red";
       sub.style.borderRadius = "10px"; // pill shape
 
-      // Place sub in bottom half of the screen
-      sub.style.bottom = `${Math.random() * 200 + 300}px`;
-      sub.style.left = `${Math.random() > 0.5 ? "0px" : "740px"}`;
+      // Water range: bottom=0 to bottom=450 (3/4 the container, which is 600px)
+      // This lets subs appear from very bottom (0) up to 450px from bottom (3/4 high)
+      const subBottom = Math.random() * 450;
+      sub.style.bottom = `${subBottom}px`;
+
+      // Randomly spawn left or right side
+      sub.style.left = Math.random() > 0.5 ? "0px" : "740px";
       sub.dataset.direction = sub.style.left === "0px" ? "right" : "left";
 
       gameContainer.appendChild(sub);
@@ -173,6 +177,7 @@
           return;
         }
         const subLeft = parseInt(sub.style.left);
+
         if (subLeft <= 0) sub.dataset.direction = "right";
         if (subLeft >= 740) sub.dataset.direction = "left";
 
@@ -181,8 +186,8 @@
           subLeft + (sub.dataset.direction === "right" ? 2 : -2)
         }px`;
 
-        // Occasionally shoot a bullet upward
-        if (Math.random() < 0.01) {
+        // Reduced firing chance from 0.01 => 0.003 for less frequent bullets
+        if (Math.random() < 0.003) {
           createBullet(parseInt(sub.style.left) + 30, parseInt(sub.style.bottom));
         }
       }, 20);
@@ -256,7 +261,7 @@
         }
         const chargeTop = parseInt(charge.style.top);
 
-        // If it goes out of the container (bottom > 600, since we count from top)
+        // If it goes out of the container (bottom > 600, since we measure from top)
         if (chargeTop >= 600) {
           clearInterval(moveCharge);
           charge.remove();
@@ -314,7 +319,7 @@
     setInterval(() => {
       if (!gameOver) {
         createSubmarine();
-        // Decrease sub spawn interval over time, down to a floor of 5000ms
+        // Decrease subSpawnInterval over time, but not below 5000 ms
         subSpawnInterval = Math.max(subSpawnInterval - 1000, 5000);
       }
     }, subSpawnInterval);
