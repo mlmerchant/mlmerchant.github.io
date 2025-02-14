@@ -15,7 +15,6 @@
 
     // Top 10% is sky, remaining 90% is ocean
     gameContainer.style.background = "linear-gradient(to bottom, #1E90FF 10%, #00008B 10%)";
-
     gameContainer.style.border = "2px solid black";
     gameContainer.style.overflow = "hidden";
     document.body.appendChild(gameContainer);
@@ -37,7 +36,7 @@
     // Variables for ship movement
     let shipVelocity = 0;             
     const acceleration = 0.3;         
-    const maxSpeed = 6;             
+    const maxSpeed = 6;              
     let leftArrowDown = false;
     let rightArrowDown = false;
 
@@ -50,7 +49,7 @@
     let depthChargeLimit = 1;
     let score = 0;
     let gameOver = false;
-    // Start sub spawns at 5000 ms (1/3 of original 15000)
+    // Start sub spawns at 5000 ms
     let subSpawnInterval = 5000; 
     const subs = new Set(); // track submarines for removal
 
@@ -158,7 +157,7 @@
       sub.style.borderRadius = "10px"; // pill shape
 
       // Water range: bottom=0 to bottom=450 (3/4 the container, which is 600px)
-      // This lets subs appear from very bottom (0) up to 450px from bottom (3/4 high)
+      // This lets subs appear from very bottom (0) up to 450px from bottom
       const subBottom = Math.random() * 450;
       sub.style.bottom = `${subBottom}px`;
 
@@ -326,6 +325,83 @@
 
     // Spawn an initial submarine
     createSubmarine();
+
+    // --- Touchscreen Controls ---
+    // Container for the touchscreen buttons
+    const touchControlsContainer = document.createElement("div");
+    touchControlsContainer.style.width = "800px";
+    touchControlsContainer.style.margin = "10px auto";
+    touchControlsContainer.style.textAlign = "center";
+    document.body.appendChild(touchControlsContainer);
+
+    // Helper function to style big buttons
+    function createControlButton(label) {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.style.width = "80px";
+      btn.style.height = "80px";
+      btn.style.fontSize = "1.2rem";
+      btn.style.margin = "0 20px";
+      return btn;
+    }
+
+    const leftBtn = createControlButton("Left");
+    const shootBtn = createControlButton("Shoot");
+    const rightBtn = createControlButton("Right");
+
+    // Left button logic
+    leftBtn.addEventListener("mousedown", () => {
+      if (!gameOver) leftArrowDown = true;
+    });
+    leftBtn.addEventListener("mouseup", () => {
+      leftArrowDown = false;
+    });
+    // For touch devices
+    leftBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (!gameOver) leftArrowDown = true;
+    });
+    leftBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      leftArrowDown = false;
+    });
+
+    // Right button logic
+    rightBtn.addEventListener("mousedown", () => {
+      if (!gameOver) rightArrowDown = true;
+    });
+    rightBtn.addEventListener("mouseup", () => {
+      rightArrowDown = false;
+    });
+    // For touch devices
+    rightBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (!gameOver) rightArrowDown = true;
+    });
+    rightBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      rightArrowDown = false;
+    });
+
+    // Shoot button logic
+    shootBtn.addEventListener("mousedown", () => {
+      if (!gameOver) {
+        const shipLeft = parseInt(ship.style.left);
+        createDepthCharge(shipLeft + 30);
+      }
+    });
+    // For touch devices
+    shootBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (!gameOver) {
+        const shipLeft = parseInt(ship.style.left);
+        createDepthCharge(shipLeft + 30);
+      }
+    });
+
+    touchControlsContainer.appendChild(leftBtn);
+    touchControlsContainer.appendChild(shootBtn);
+    touchControlsContainer.appendChild(rightBtn);
   </script>
 </body>
 </html>
