@@ -23,9 +23,6 @@
       font-size: 24px;
       text-decoration: underline;
     }
-    p {
-      font-size: 14px;
-    }
     input, button {
       font-family: "Courier New", Courier, monospace;
       font-size: 14px;
@@ -38,13 +35,9 @@
       cursor: pointer;
       background-color: #C0C0C0;
     }
-    a {
-      font-family: "Courier New", Courier, monospace;
-      color: blue;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
+    #status {
+      font-size: 14px;
+      margin-top: 10px;
     }
     footer {
       margin-top: 20px;
@@ -57,32 +50,24 @@
 <body>
   <div class="container">
     <h1>ISO Builder</h1>
+    <!-- Allow multiple files -->
     <input type="file" id="fileInput" multiple><br>
     <button id="createIsoButton">Create and Download ISO</button>
-    <p id="status"></p>
+    <div id="status"></div>
   </div>
 
   <footer>
-    <p>Copyright (C) 2025 Matt Merchant</p>
     <p>
-      This program is free software: you can redistribute it and/or modify it under 
-      the terms of the GNU General Public License as published by the Free Software Foundation, 
-      either version 3 of the License, or (at your option) any later version.
-    </p>
-    <p>
-      This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
-      without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
-      See the GNU General Public License for more details.
-    </p>
-    <p>
-      You should have received a copy of the GNU General Public License along with this program. 
-      If not, see <a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.
+      This is free software under the terms of the GNU General Public License, 
+      version 3 or later. See <a href="https://www.gnu.org/licenses/" target="_blank">
+      https://www.gnu.org/licenses/</a> for details.
     </p>
   </footer>
 
-  <!-- Load the iso9660-writer library from UNPKG (UMD build) -->
+  <!-- 1) Include the UMD build for iso9660-writer -->
   <script src="https://unpkg.com/iso9660-writer@latest/dist/iso9660writer.umd.min.js"></script>
 
+  <!-- 2) Use the library via its global name: `iso9660writer` -->
   <script>
     const fileInput = document.getElementById('fileInput');
     const createIsoButton = document.getElementById('createIsoButton');
@@ -98,29 +83,30 @@
       }
 
       try {
-        // The global from iso9660writer.umd.min.js is named "Iso9660Writer"
-        const iso = new Iso9660Writer.ISO9660();
+        // The correct global is `iso9660writer`
+        const iso = new iso9660writer.ISO9660();
 
         let fileCount = 0;
         for (const file of files) {
-          // Read file into memory as ArrayBuffer
+          // Read the file into memory as ArrayBuffer
           const arrayBuffer = await file.arrayBuffer();
-          // Add file to the ISO (root directory)
+          // Add file to the ISO under the same name
           iso.addFile(file.name, new Uint8Array(arrayBuffer));
           fileCount++;
         }
 
-        // Build ISO as a Blob (using optional volume label)
-        const isoBlob = iso.writeBlob({ volumeLabel: "MY_ISO_FILES" });
-        
-        // Create a link to let user download
+        // Generate ISO as a Blob; optionally specify a volume label (up to 11 chars in standard ISO9660)
+        const isoBlob = iso.writeBlob({ volumeLabel: 'MY_FILES' });
+
+        // Create a link for the user to download the ISO
         const downloadLink = document.createElement('a');
         const isoUrl = URL.createObjectURL(isoBlob);
-
+        
         downloadLink.href = isoUrl;
         downloadLink.download = 'my_files.iso';
         downloadLink.textContent = 'Download ISO File';
-        downloadLink.style.display = 'block';
+        downloadLink.style.display = 'inline-block';
+        downloadLink.style.marginTop = '10px';
 
         statusArea.textContent = `Successfully built ISO with ${fileCount} file(s). `;
         statusArea.appendChild(downloadLink);
