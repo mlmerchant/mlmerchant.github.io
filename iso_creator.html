@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISO Builder</title>
+    <style>
+        body {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #C0C0C0;
+            color: black;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 640px;
+            margin: 20px auto;
+            background-color: white;
+            border: 2px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            text-decoration: underline;
+        }
+        p {
+            font-size: 14px;
+        }
+        input, button {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            border: 1px solid black;
+            padding: 5px;
+            background-color: #E0E0E0;
+        }
+        button {
+            cursor: pointer;
+            background-color: #C0C0C0;
+        }
+        a {
+            font-family: "Courier New", Courier, monospace;
+            color: blue;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            border-top: 1px solid black;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ISO Builder</h1>
+        
+        <!-- Accept multiple files -->
+        <input type="file" id="fileInput" multiple><br>
+        
+        <button id="createIsoButton">Create and Download ISO</button>
+        
+        <p id="status"></p>
+    </div>
+    
+    <footer>
+        <p>Copyright (C) 2025 Matthew Merchant</p>
+        <p>
+            This program is free software: you can redistribute it and/or modify it under 
+            the terms of the GNU General Public License as published by the Free Software Foundation, 
+            either version 3 of the License, or (at your option) any later version.
+        </p>
+        <p>
+            This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
+            without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+            See the GNU General Public License for more details.
+        </p>
+        <p>
+            You should have received a copy of the GNU General Public License along with this program. 
+            If not, see <a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.
+        </p>
+    </footer>
+    
+    <!-- iso9660-writer library: from UNPKG or your own host. -->
+    <!-- You can also use a <script type="module"> and import it. 
+         For demonstration, we're using a direct <script> from a CDN. -->
+    <script src="https://unpkg.com/iso9660-writer/dist/iso9660writer.umd.min.js"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const createIsoButton = document.getElementById('createIsoButton');
+        const statusArea = document.getElementById('status');
+
+        createIsoButton.addEventListener('click', async () => {
+            // Clear status text each time
+            statusArea.textContent = '';
+
+            const files = fileInput.files;
+            if (!files || files.length === 0) {
+                statusArea.textContent = 'Please select at least one file.';
+                return;
+            }
+
+            try {
+                // Create a new ISO9660 writer
+                const iso = new ISO9660Writer.ISO9660();
+
+                // We'll track how many files we add
+                let fileCount = 0;
+
+                // We read each selected file into memory, then add to ISO
+                for (const file of files) {
+                    // We'll turn the file name into a safe ISO9660 name
+                    // (this library automatically uppercases and truncates if needed).
+                    
+                    // Read file as an ArrayBuffer
+                    const arrayBuffer = await file.arrayBuffer();
+                    // Add the file to the root directory of the ISO
+                    iso.addFile(file.name, new Uint8Array(arrayBuffer));
+                    fileCount++;
+                }
+
+                // Now build the ISO as a Blob
+                const isoBlob = iso.writeBlob({
+                    volumeLabel: "MY_ISO_FILES" // 11 chars max for standard ISO9660
+                });
+
+                // Generate a temporary download link
+                const downloadLink = document.createElement('a');
+                const isoUrl = URL.createObjectURL(isoBlob);
+                downloadLink.href = isoUrl;
+                downloadLink.download = 'my_files.iso';
+                downloadLink.textContent = 'Download ISO File';
+                downloadLink.style.display = 'block';
+
+                // Update status
+                statusArea.textContent = `Successfully built ISO with ${fileCount} file(s). `;
+                statusArea.appendChild(downloadLink);
+            } catch (e) {
+                console.error(e);
+                statusArea.textContent = 'Error creating ISO: ' + e.message;
+            }
+        });
+    </script>
+</body>
+</html>
