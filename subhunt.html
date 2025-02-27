@@ -4,177 +4,404 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Submarine Game</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-    .full-width-button {
-      width: 100%;
-      padding: 20px;
-      font-size: 1.5rem;
-      border: none;
-      cursor: pointer;
-    }
-    .button-container {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      background-color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-    }
-    #gameContainer {
-      display: none;
-      position: relative;
-      width: 800px;
-      height: 600px;
-      background: linear-gradient(to bottom, #1E90FF 10%, #00008B 10%);
-      border: 2px solid black;
-      overflow: hidden;
-      margin: 20px auto;
-    }
-    .touch-controls {
-      display: none;
-      width: 800px;
-      margin: 10px auto;
-      text-align: center;
-    }
-    .touch-controls button {
-      width: 160px;
-      height: 160px;
-      font-size: 1.2rem;
-      margin: 0 40px;
-    }
-  </style>
 </head>
 <body>
-
-  <div class="button-container" id="startMenu">
-    <button class="full-width-button" id="keyboardButton">Play with Arrow Keys and Space bar</button>
-    <button class="full-width-button" id="touchButton">Play with Touch Controls</button>
-  </div>
-
-  <div id="gameContainer"></div>
-
-  <div class="touch-controls" id="touchControls">
-    <button id="leftBtn">Left</button>
-    <button id="shootBtn">Shoot</button>
-    <button id="rightBtn">Right</button>
-  </div>
-
   <script>
-    document.getElementById("keyboardButton").addEventListener("click", function() {
-      startGame(false);
-    });
+    // Create the game container
+    const gameContainer = document.createElement("div");
+    gameContainer.style.position = "relative";
+    gameContainer.style.width = "800px";
+    gameContainer.style.height = "600px";
 
-    document.getElementById("touchButton").addEventListener("click", function() {
-      startGame(true);
-    });
+    // Top 10% is sky, remaining 90% is ocean
+    gameContainer.style.background = "linear-gradient(to bottom, #1E90FF 10%, #00008B 10%)";
+    gameContainer.style.border = "2px solid black";
+    gameContainer.style.overflow = "hidden";
+    document.body.appendChild(gameContainer);
 
-    function startGame(useTouchControls) {
-      document.getElementById("startMenu").style.display = "none";
-      document.getElementById("gameContainer").style.display = "block";
-      
-      if (useTouchControls) {
-        document.getElementById("touchControls").style.display = "block";
+    // Create the ship at the top
+    const ship = document.createElement("div");
+    ship.style.position = "absolute";
+    ship.style.top = "30px";
+    ship.style.left = "50%";
+    ship.style.width = "80px";
+    ship.style.height = "30px";
+    ship.style.backgroundColor = "gray";
+    // Use clip-path for a WWII sub-hunter silhouette
+    ship.style.clipPath =
+      "polygon(0% 100%, 10% 70%, 30% 60%, 70% 60%, 90% 70%, 100% 100%, 100% 100%, 0% 100%)";
+    ship.style.transform = "translateX(-50%)";
+    gameContainer.appendChild(ship);
+
+    // Variables for ship movement
+    let shipVelocity = 0;             
+    const acceleration = 0.3;         
+    const maxSpeed = 6;              
+    let leftArrowDown = false;
+    let rightArrowDown = false;
+
+    // Bounds for ship so it doesn't go off screen
+    const shipMinX = 80;
+    const shipMaxX = 720;
+
+    // For other game logic
+    let activeDepthCharges = 0;
+    let depthChargeLimit = 1;
+    let score = 0;
+    let gameOver = false;
+    // Start sub spawns at 5000 ms
+    let subSpawnInterval = 5000; 
+    const subs = new Set(); // track submarines for removal
+
+    // Score display
+    const scoreDisplay = document.createElement("div");
+    scoreDisplay.style.position = "absolute";
+    scoreDisplay.style.top = "10px";
+    scoreDisplay.style.left = "10px";
+    scoreDisplay.style.fontSize = "20px";
+    scoreDisplay.textContent = `Score: ${score}`;
+    gameContainer.appendChild(scoreDisplay);
+
+    // Control panel
+    const controlPanel = document.createElement("div");
+    controlPanel.style.position = "absolute";
+    controlPanel.style.top = "10px";
+    controlPanel.style.right = "10px";
+    controlPanel.style.fontSize = "20px";
+    gameContainer.appendChild(controlPanel);
+
+    const startButton = document.createElement("button");
+    startButton.textContent = "Harder";
+    startButton.style.marginRight = "10px";
+    controlPanel.appendChild(startButton);
+
+    const resetButton = document.createElement("button");
+    resetButton.textContent = "Reset";
+    controlPanel.appendChild(resetButton);
+
+    startButton.addEventListener("click", () => {
+      if (!gameOver) {
+        createSubmarine();
       }
+    });
 
-      initializeGame(useTouchControls);
+    resetButton.addEventListener("click", () => {
+      location.reload();
+    });
+
+    // Key handling to track whether arrow keys are held
+    document.addEventListener("keydown", (e) => {
+      if (gameOver) return;
+      if (e.key === "ArrowLeft") {
+        leftArrowDown = true;
+      } else if (e.key === "ArrowRight") {
+        rightArrowDown = true;
+      } else if (e.key === " ") {
+        // Space fires a depth charge
+        const shipLeft = parseInt(ship.style.left);
+        createDepthCharge(shipLeft + 30);
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft") {
+        leftArrowDown = false;
+      } else if (e.key === "ArrowRight") {
+        rightArrowDown = false;
+      }
+    });
+
+    // Update the ship position according to velocity
+    function updateShip() {
+      // Accelerate if arrow keys are down
+      if (leftArrowDown && !rightArrowDown) {
+        shipVelocity -= acceleration;
+      } else if (rightArrowDown && !leftArrowDown) {
+        shipVelocity += acceleration;
+      }
+      // If both or neither are down, we just coast at current velocity
+
+      // Clamp velocity
+      if (shipVelocity > maxSpeed) shipVelocity = maxSpeed;
+      if (shipVelocity < -maxSpeed) shipVelocity = -maxSpeed;
+
+      // Move the ship
+      let currentLeft = parseInt(ship.style.left);
+      currentLeft += shipVelocity;
+
+      // Keep ship in bounds & reset velocity if we hit an edge
+      if (currentLeft < shipMinX) {
+        currentLeft = shipMinX;
+        shipVelocity = 0;
+      } else if (currentLeft > shipMaxX) {
+        currentLeft = shipMaxX;
+        shipVelocity = 0;
+      }
+      ship.style.left = currentLeft + "px";
     }
 
-    function initializeGame(useTouchControls) {
-      const gameContainer = document.getElementById("gameContainer");
+    // Game loop for ship movement
+    const shipMovementInterval = setInterval(() => {
+      if (!gameOver) {
+        updateShip();
+      }
+    }, 20);
 
-      const ship = document.createElement("div");
-      ship.style.position = "absolute";
-      ship.style.top = "30px";
-      ship.style.left = "50%";
-      ship.style.width = "80px";
-      ship.style.height = "30px";
-      ship.style.backgroundColor = "gray";
-      ship.style.clipPath = "polygon(0% 100%, 10% 70%, 30% 60%, 70% 60%, 90% 70%, 100% 100%, 100% 100%, 0% 100%)";
-      ship.style.transform = "translateX(-50%)";
-      gameContainer.appendChild(ship);
+    // Submarine creation
+    function createSubmarine() {
+      const sub = document.createElement("div");
+      sub.style.position = "absolute";
+      sub.style.width = "60px";
+      sub.style.height = "20px";
+      sub.style.backgroundColor = "black";
+      sub.style.borderRadius = "10px"; // pill shape
 
-      let leftArrowDown = false;
-      let rightArrowDown = false;
-      let shipVelocity = 0;
-      const acceleration = 0.3;
-      const maxSpeed = 6;
-      const shipMinX = 80;
-      const shipMaxX = 720;
+      // Water range: bottom=0 to bottom=450 (3/4 the container, which is 600px)
+      // This lets subs appear from very bottom (0) up to 450px from bottom
+      const subBottom = Math.random() * 450;
+      sub.style.bottom = `${subBottom}px`;
 
-      function updateShip() {
-        if (leftArrowDown && !rightArrowDown) {
-          shipVelocity -= acceleration;
-        } else if (rightArrowDown && !leftArrowDown) {
-          shipVelocity += acceleration;
+      // Randomly spawn left or right side
+      sub.style.left = Math.random() > 0.5 ? "0px" : "740px";
+      sub.dataset.direction = sub.style.left === "0px" ? "right" : "left";
+
+      gameContainer.appendChild(sub);
+      subs.add(sub);
+
+      // Move submarine
+      const moveInterval = setInterval(() => {
+        if (gameOver) {
+          clearInterval(moveInterval);
+          sub.remove();
+          return;
+        }
+        const subLeft = parseInt(sub.style.left);
+
+        if (subLeft <= 0) sub.dataset.direction = "right";
+        if (subLeft >= 740) sub.dataset.direction = "left";
+
+        // Move left or right
+        sub.style.left = `${
+          subLeft + (sub.dataset.direction === "right" ? 2 : -2)
+        }px`;
+
+        // Reduced firing chance from 0.01 => 0.003 for less frequent bullets
+        if (Math.random() < 0.003) {
+          createBullet(parseInt(sub.style.left) + 30, parseInt(sub.style.bottom));
+        }
+      }, 20);
+
+      // Keep track so we can clear interval later if sub is destroyed
+      sub.moveSubmarineInterval = moveInterval;
+    }
+
+    // Submarine bullet
+    function createBullet(x, y) {
+      const bullet = document.createElement("div");
+      bullet.style.position = "absolute";
+      bullet.style.width = "5px";
+      bullet.style.height = "10px";
+      bullet.style.backgroundColor = "black";
+      bullet.style.left = `${x}px`;
+      bullet.style.bottom = `${y}px`;
+      gameContainer.appendChild(bullet);
+
+      const moveBullet = setInterval(() => {
+        if (gameOver) {
+          clearInterval(moveBullet);
+          bullet.remove();
+          return;
+        }
+        const bulletBottom = parseInt(bullet.style.bottom);
+        // Remove bullet if it goes above the screen
+        if (bulletBottom >= 600) {
+          clearInterval(moveBullet);
+          bullet.remove();
+        } else {
+          bullet.style.bottom = `${bulletBottom + 5}px`;
         }
 
-        if (shipVelocity > maxSpeed) shipVelocity = maxSpeed;
-        if (shipVelocity < -maxSpeed) shipVelocity = -maxSpeed;
-
-        let currentLeft = parseInt(ship.style.left);
-        currentLeft += shipVelocity;
-
-        if (currentLeft < shipMinX) {
-          currentLeft = shipMinX;
-          shipVelocity = 0;
-        } else if (currentLeft > shipMaxX) {
-          currentLeft = shipMaxX;
-          shipVelocity = 0;
+        // Check collision with ship
+        const shipRect = ship.getBoundingClientRect();
+        const bulletRect = bullet.getBoundingClientRect();
+        if (
+          bulletRect.left < shipRect.right &&
+          bulletRect.right > shipRect.left &&
+          bulletRect.top < shipRect.bottom &&
+          bulletRect.bottom > shipRect.top
+        ) {
+          clearInterval(moveBullet);
+          bullet.remove();
+          endGame();
         }
-        ship.style.left = currentLeft + "px";
-      }
+      }, 20);
+    }
 
-      const shipMovementInterval = setInterval(updateShip, 20);
+    // Depth charges
+    function createDepthCharge(x) {
+      if (activeDepthCharges >= depthChargeLimit) return;
+      activeDepthCharges++;
 
-      if (!useTouchControls) {
-        document.addEventListener("keydown", (e) => {
-          if (e.key === "ArrowLeft") leftArrowDown = true;
-          else if (e.key === "ArrowRight") rightArrowDown = true;
-          else if (e.key === " ") createDepthCharge(parseInt(ship.style.left) + 30);
-        });
+      const charge = document.createElement("div");
+      charge.style.position = "absolute";
+      charge.style.width = "10px";
+      charge.style.height = "10px";
+      charge.style.backgroundColor = "gray";
+      charge.style.left = `${x}px`;
+      // Start just under the ship's bottom edge
+      charge.style.top = "50px";
+      gameContainer.appendChild(charge);
 
-        document.addEventListener("keyup", (e) => {
-          if (e.key === "ArrowLeft") leftArrowDown = false;
-          else if (e.key === "ArrowRight") rightArrowDown = false;
-        });
-      } else {
-        document.getElementById("leftBtn").addEventListener("touchstart", () => leftArrowDown = true);
-        document.getElementById("leftBtn").addEventListener("touchend", () => leftArrowDown = false);
-        document.getElementById("rightBtn").addEventListener("touchstart", () => rightArrowDown = true);
-        document.getElementById("rightBtn").addEventListener("touchend", () => rightArrowDown = false);
-        document.getElementById("shootBtn").addEventListener("touchstart", () => createDepthCharge(parseInt(ship.style.left) + 30));
-      }
+      const moveCharge = setInterval(() => {
+        if (gameOver) {
+          clearInterval(moveCharge);
+          charge.remove();
+          return;
+        }
+        const chargeTop = parseInt(charge.style.top);
 
-      function createDepthCharge(x) {
-        const charge = document.createElement("div");
-        charge.style.position = "absolute";
-        charge.style.width = "10px";
-        charge.style.height = "10px";
-        charge.style.backgroundColor = "gray";
-        charge.style.left = `${x}px`;
-        charge.style.top = "50px";
-        gameContainer.appendChild(charge);
+        // If it goes out of the container (bottom > 600, since we measure from top)
+        if (chargeTop >= 600) {
+          clearInterval(moveCharge);
+          charge.remove();
+          activeDepthCharges--;
+          return;
+        }
 
-        const moveCharge = setInterval(() => {
-          const chargeTop = parseInt(charge.style.top);
-          if (chargeTop >= 600) {
+        // Move the charge downward
+        charge.style.top = `${chargeTop + 5}px`;
+
+        // Check collision with submarines
+        for (const sub of subs) {
+          const subRect = sub.getBoundingClientRect();
+          const chargeRect = charge.getBoundingClientRect();
+          if (
+            chargeRect.left < subRect.right &&
+            chargeRect.right > subRect.left &&
+            chargeRect.top < subRect.bottom &&
+            chargeRect.bottom > subRect.top
+          ) {
+            // Submarine hit: remove sub & charge
             clearInterval(moveCharge);
             charge.remove();
+            activeDepthCharges--;
+
+            removeSubmarine(sub);
+            score++;
+            scoreDisplay.textContent = `Score: ${score}`;
             return;
           }
-          charge.style.top = `${chargeTop + 5}px`;
-        }, 20);
-      }
+        }
+      }, 20);
     }
-  </script>
 
+    function removeSubmarine(sub) {
+      clearInterval(sub.moveSubmarineInterval);
+      sub.remove();
+      subs.delete(sub);
+    }
+
+    // End game
+    function endGame() {
+      gameOver = true;
+      // Stop all submarines
+      for (const sub of subs) {
+        clearInterval(sub.moveSubmarineInterval);
+      }
+      // Stop ship movement
+      clearInterval(shipMovementInterval);
+      alert(`Game Over! Final Score: ${score}`);
+      location.reload();
+    }
+
+    // Periodically spawn more submarines
+    setInterval(() => {
+      if (!gameOver) {
+        createSubmarine();
+        // Decrease subSpawnInterval over time, but not below 5000 ms
+        subSpawnInterval = Math.max(subSpawnInterval - 1000, 5000);
+      }
+    }, subSpawnInterval);
+
+    // Spawn an initial submarine
+    createSubmarine();
+
+    // --- Touchscreen Controls ---
+    // Container for the touchscreen buttons
+    const touchControlsContainer = document.createElement("div");
+    touchControlsContainer.style.width = "800px";
+    touchControlsContainer.style.margin = "10px auto";
+    touchControlsContainer.style.textAlign = "center";
+    document.body.appendChild(touchControlsContainer);
+
+    // Helper function to style big buttons
+    function createControlButton(label) {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.style.width = "160px";
+      btn.style.height = "160px";
+      btn.style.fontSize = "1.2rem";
+      btn.style.margin = "0 40px";
+      return btn;
+    }
+
+    const leftBtn = createControlButton("Left");
+    const shootBtn = createControlButton("Shoot");
+    const rightBtn = createControlButton("Right");
+
+    // Left button logic
+    leftBtn.addEventListener("mousedown", () => {
+      if (!gameOver) leftArrowDown = true;
+    });
+    leftBtn.addEventListener("mouseup", () => {
+      leftArrowDown = false;
+    });
+    // For touch devices
+    leftBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (!gameOver) leftArrowDown = true;
+    });
+    leftBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      leftArrowDown = false;
+    });
+
+    // Right button logic
+    rightBtn.addEventListener("mousedown", () => {
+      if (!gameOver) rightArrowDown = true;
+    });
+    rightBtn.addEventListener("mouseup", () => {
+      rightArrowDown = false;
+    });
+    // For touch devices
+    rightBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (!gameOver) rightArrowDown = true;
+    });
+    rightBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      rightArrowDown = false;
+    });
+
+    // Shoot button logic
+    shootBtn.addEventListener("mousedown", () => {
+      if (!gameOver) {
+        const shipLeft = parseInt(ship.style.left);
+        createDepthCharge(shipLeft + 30);
+      }
+    });
+    // For touch devices
+    shootBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (!gameOver) {
+        const shipLeft = parseInt(ship.style.left);
+        createDepthCharge(shipLeft + 30);
+      }
+    });
+
+    touchControlsContainer.appendChild(leftBtn);
+    touchControlsContainer.appendChild(shootBtn);
+    touchControlsContainer.appendChild(rightBtn);
+  </script>
 </body>
 </html>
