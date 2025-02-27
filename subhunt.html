@@ -41,7 +41,7 @@
     let rightArrowDown = false;
 
     // Bounds for ship so it doesn't go off screen
-    const shipMinX = 0;
+    const shipMinX = 80;
     const shipMaxX = 720;
 
     // For other game logic
@@ -153,7 +153,7 @@
       sub.style.position = "absolute";
       sub.style.width = "60px";
       sub.style.height = "20px";
-      sub.style.backgroundColor = "red";
+      sub.style.backgroundColor = "black";
       sub.style.borderRadius = "10px"; // pill shape
 
       // Water range: bottom=0 to bottom=450 (3/4 the container, which is 600px)
