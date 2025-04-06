@@ -1,213 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Submarine Game</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMK Lap Count Changer</title>
+    <style>
+        body {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #C0C0C0;
+            color: black;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 640px;
+            margin: 20px auto;
+            background-color: white;
+            border: 2px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            text-decoration: underline;
+        }
+        p {
+            font-size: 14px;
+        }
+        input, select, button {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            border: 1px solid black;
+            padding: 5px;
+            background-color: #E0E0E0;
+        }
+        button {
+            cursor: pointer;
+            background-color: #C0C0C0;
+        }
+        a {
+            font-family: "Courier New", Courier, monospace;
+            color: blue;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            border-top: 1px solid black;
+            padding-top: 10px;
+        }
+    </style>
 </head>
 <body>
-  <script>
-    const gameContainer = document.createElement("div");
-    gameContainer.style.position = "relative";
-    gameContainer.style.width = "800px";
-    gameContainer.style.height = "600px";
-    gameContainer.style.backgroundColor = "lightblue";
-    gameContainer.style.border = "2px solid black";
-    gameContainer.style.overflow = "hidden";
-    document.body.appendChild(gameContainer);
+    <div class="container">
+        <h1>SMK Lap Count Changer</h1>
+        
+        <input type="file" id="fileInput" accept=".smc" /><br>
+        <label for="laps">Select Number of Laps:</label>
+        <select id="laps"></select><br>
+        <button id="modifyButton">Modify and Download</button>
+        <p id="status"></p>
+    </div>
+    <footer>
+        <p>Copyright (C) 2025 Matthew Merchant</p>
+        <p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
+        <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.</p>
+        <p>You should have received a copy of the GNU General Public License along with this program. If not, see <a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>.</p>
+        <p>Special thanks to R4M0N.</p>
+    </footer>
 
-    const ship = document.createElement("div");
-    ship.style.position = "absolute";
-    ship.style.top = "0";
-    ship.style.left = "50%";
-    ship.style.width = "50px";
-    ship.style.height = "20px";
-    ship.style.backgroundColor = "blue";
-    ship.style.transform = "translateX(-50%)";
-    gameContainer.appendChild(ship);
+    <script>
+        document.getElementById('modifyButton').addEventListener('click', async () => {
+            const fileInput = document.getElementById('fileInput');
+            const laps = parseInt(document.getElementById('laps').value);
+            const status = document.getElementById('status');
 
-    let shipSpeed = 10;
-    let activeDepthCharges = 0;
-    let depthChargeLimit = 5;
-    let score = 0;
-    let gameOver = false;
-    let subSpawnInterval = 15000;
+            // Check if a file is uploaded
+            if (!fileInput.files[0]) {
+                status.textContent = "Please upload a file first.";
+                return;
+            }
 
-    const scoreDisplay = document.createElement("div");
-    scoreDisplay.style.position = "absolute";
-    scoreDisplay.style.top = "10px";
-    scoreDisplay.style.left = "10px";
-    scoreDisplay.style.fontSize = "20px";
-    scoreDisplay.textContent = `Score: ${score}`;
-    gameContainer.appendChild(scoreDisplay);
+            const file = fileInput.files[0];
 
-    const controlPanel = document.createElement("div");
-    controlPanel.style.position = "absolute";
-    controlPanel.style.top = "10px";
-    controlPanel.style.right = "10px";
-    controlPanel.style.fontSize = "20px";
-    gameContainer.appendChild(controlPanel);
+            // Read the file as a binary array
+            const arrayBuffer = await file.arrayBuffer();
+            const byteArray = new Uint8Array(arrayBuffer);
 
-    const startButton = document.createElement("button");
-    startButton.textContent = "Start";
-    startButton.style.marginRight = "10px";
-    controlPanel.appendChild(startButton);
+            // Target offset and value
+            const baseOffset = 0x1ED93;
+            const expectedValue = 0x85;
+            const newValue = laps + 128;
 
-    const resetButton = document.createElement("button");
-    resetButton.textContent = "Reset";
-    controlPanel.appendChild(resetButton);
+            let modified = false;
 
-    startButton.addEventListener("click", () => {
-      if (!gameOver) {
-        createSubmarine();
-      }
-    });
+            // Check offsets around the base offset in case of header or alignment issues
+            const offsetsToCheck = [
+                baseOffset,
+                baseOffset + 0x200, // Header offset adjustment
+                baseOffset - 0x200  // Possible misalignment
+            ];
 
-    resetButton.addEventListener("click", () => {
-      location.reload();
-    });
+            for (const offset of offsetsToCheck) {
+                if (byteArray[offset] === expectedValue) {
+                    byteArray[offset] = newValue;
+                    modified = true;
+                    break;
+                }
+            }
 
-    function createSubmarine() {
-      const sub = document.createElement("div");
-      sub.style.position = "absolute";
-      sub.style.width = "60px";
-      sub.style.height = "20px";
-      sub.style.backgroundColor = "red";
-      sub.style.bottom = `${Math.random() * 200 + 50}px`;
-      sub.style.left = `${Math.random() > 0.5 ? "0px" : "740px"}`;
-      sub.dataset.direction = sub.style.left === "0px" ? "right" : "left";
-      gameContainer.appendChild(sub);
+            if (!modified) {
+                status.textContent = "Failed to find the expected value at the target offset.";
+                return;
+            }
 
-      const moveSubmarine = setInterval(() => {
-        if (gameOver) {
-          clearInterval(moveSubmarine);
-          sub.remove();
-          return;
-        }
-        const subLeft = parseInt(sub.style.left);
-        if (subLeft <= 0) sub.dataset.direction = "right";
-        if (subLeft >= 740) sub.dataset.direction = "left";
-        sub.style.left = `${subLeft + (sub.dataset.direction === "right" ? 2 : -2)}px`;
+            // Create a new Blob for the modified file
+            const modifiedBlob = new Blob([byteArray], { type: 'application/octet-stream' });
 
-        if (Math.random() < 0.01) {
-          createBullet(subLeft + 30, parseInt(sub.style.bottom));
-        }
-      }, 20);
-    }
+            // Generate a download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(modifiedBlob);
+            downloadLink.download = `modified_${file.name}`;
+            downloadLink.textContent = "Download Modified File";
+            downloadLink.style.display = "block";
 
-    function createBullet(x, y) {
-      const bullet = document.createElement("div");
-      bullet.style.position = "absolute";
-      bullet.style.width = "5px";
-      bullet.style.height = "10px";
-      bullet.style.backgroundColor = "black";
-      bullet.style.left = `${x}px`;
-      bullet.style.bottom = `${y}px`;
-      gameContainer.appendChild(bullet);
-
-      const moveBullet = setInterval(() => {
-        if (gameOver) {
-          clearInterval(moveBullet);
-          bullet.remove();
-          return;
-        }
-        const bulletBottom = parseInt(bullet.style.bottom);
-        if (bulletBottom >= 600) {
-          clearInterval(moveBullet);
-          bullet.remove();
-        } else {
-          bullet.style.bottom = `${bulletBottom + 5}px`;
-        }
-
-        const shipRect = ship.getBoundingClientRect();
-        const bulletRect = bullet.getBoundingClientRect();
-        if (
-          bulletRect.left < shipRect.right &&
-          bulletRect.right > shipRect.left &&
-          bulletRect.top < shipRect.bottom &&
-          bulletRect.bottom > shipRect.top
-        ) {
-          clearInterval(moveBullet);
-          bullet.remove();
-          endGame();
-        }
-      }, 20);
-    }
-
-    function createDepthCharge(x) {
-      if (activeDepthCharges >= depthChargeLimit) return;
-      activeDepthCharges++;
-      const charge = document.createElement("div");
-      charge.style.position = "absolute";
-      charge.style.width = "10px";
-      charge.style.height = "10px";
-      charge.style.backgroundColor = "gray";
-      charge.style.left = `${x}px`;
-      charge.style.top = "20px";
-      gameContainer.appendChild(charge);
-
-      const moveCharge = setInterval(() => {
-        if (gameOver) {
-          clearInterval(moveCharge);
-          charge.remove();
-          return;
-        }
-        const chargeTop = parseInt(charge.style.top);
-        if (chargeTop >= 600) {
-          clearInterval(moveCharge);
-          charge.remove();
-          activeDepthCharges--;
-        } else {
-          charge.style.top = `${chargeTop + 5}px`;
-        }
-
-        document.querySelectorAll("div").forEach((sub) => {
-          if (sub === charge || sub === ship || !sub.dataset.direction) return;
-          const subRect = sub.getBoundingClientRect();
-          const chargeRect = charge.getBoundingClientRect();
-          if (
-            chargeRect.left < subRect.right &&
-            chargeRect.right > subRect.left &&
-            chargeRect.top < subRect.bottom &&
-            chargeRect.bottom > subRect.top
-          ) {
-            clearInterval(moveCharge);
-            charge.remove();
-            sub.remove();
-            activeDepthCharges--;
-            score++;
-            scoreDisplay.textContent = `Score: ${score}`;
-          }
+            // Display the download link
+            status.textContent = "Modification successful!";
+            status.appendChild(downloadLink);
         });
-      }, 20);
-    }
 
-    function endGame() {
-      gameOver = true;
-      alert(`Game Over! Final Score: ${score}`);
-      location.reload();
-    }
-
-    document.addEventListener("keydown", (e) => {
-      if (gameOver) return;
-      const shipLeft = parseInt(ship.style.left);
-      if (e.key === "ArrowLeft" && shipLeft > 0) {
-        ship.style.left = `${shipLeft - shipSpeed}px`;
-      } else if (e.key === "ArrowRight" && shipLeft < 750) {
-        ship.style.left = `${shipLeft + shipSpeed}px`;
-      } else if (e.key === " ") {
-        createDepthCharge(shipLeft + 20);
-      }
-    });
-
-    setInterval(() => {
-      if (!gameOver) {
-        createSubmarine();
-        subSpawnInterval = Math.max(subSpawnInterval - 1000, 5000);
-      }
-    }, subSpawnInterval);
-
-    createSubmarine();
-  </script>
+        // Populate the dropdown with the maximum possible laps
+        const lapsDropdown = document.getElementById('laps');
+        const maxLaps = 127; // Max value for signed 8-bit integer (128 including 0 for N+128 calculation)
+        for (let i = 1; i <= maxLaps; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            lapsDropdown.appendChild(option);
+        }
+    </script>
 </body>
 </html>
