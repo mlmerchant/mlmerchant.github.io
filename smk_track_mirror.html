@@ -21,78 +21,81 @@
   document.getElementById('fileInput').addEventListener('change', e => {
     const f = e.target.files[0];
     if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      originalText = r.result;
+    const reader = new FileReader();
+    reader.onload = () => {
+      originalText = reader.result;
       document.getElementById('mirrorBtn').disabled = false;
       document.getElementById('downloadLink').style.display = 'none';
     };
-    r.readAsText(f);
+    reader.readAsText(f);
   });
 
   document.getElementById('mirrorBtn').addEventListener('click', () => {
     const lines = originalText.split(/\r?\n/);
-
-    // 1) simple‐field regex
     const simpleFieldRE = /^#([A-Z0-9_]+)\s+([0-9A-F]+)$/;
 
-    // 2) identify all pure‐hex block‐data lines
-    const isBlockLine = l => {
+    // Identify ALL pure-hex lines (no spaces, not simple fields)
+    const isHexOnly = l => {
       if (!l.startsWith('#')) return false;
-      // exclude "key value" lines
       if (simpleFieldRE.test(l)) return false;
-      // must be "#HEX…"
       const hex = l.slice(1).trim();
       return /^[0-9A-F]+$/.test(hex);
     };
-    const blockLines = lines
-      .map((l,i) => isBlockLine(l) ? i : -1)
-      .filter(i => i >= 0);
-
-    if (blockLines.length === 0) {
-      alert('No tile data found!');
+    const hexLineIndices = lines.map((l,i) => isHexOnly(l) ? i : -1).filter(i => i >= 0);
+    if (hexLineIndices.length === 0) {
+      alert('No tile data found.');
       return;
     }
 
-    // 3) detect width from first block‐data row
-    const firstHex = lines[blockLines[0]].slice(1).trim();
-    const tileCount = firstHex.length / 2;
-    const TILE_PX = 16;
-    const pixelWidth = tileCount * TILE_PX;
+    // Find first contiguous block of hex-only lines (the base-tile layer)
+    const start = hexLineIndices[0];
+    let end = start;
+    for (let i = 1; i < hexLineIndices.length; i++) {
+      if (hexLineIndices[i] === hexLineIndices[i-1] + 1) {
+        end = hexLineIndices[i];
+      } else break;
+    }
+    const tileRows = hexLineIndices.filter(idx => idx >= start && idx <= end);
 
-    // 4) collect all simple fields for coordinate flipping
+    // Get track width in tiles from the first row
+    const firstHex = lines[start].slice(1).trim();
+    const tileWidth = firstHex.length / 2;
+    const PIX_PER_TILE = 16;
+    const trackPixelWidth = tileWidth * PIX_PER_TILE;
+
+    // Gather simple fields for flipping coords
     const fieldMap = {};
     lines.forEach(l => {
       const m = l.match(simpleFieldRE);
       if (m) fieldMap[m[1]] = m[2];
     });
-    const padHex = (v, len) => v.toString(16).toUpperCase().padStart(len, '0');
 
-    // 5) make a copy and flip only the first tileCount rows
-    const out = lines.slice();
-    blockLines.slice(0, tileCount).forEach(idx => {
+    const padHex = (num, len) => num.toString(16).toUpperCase().padStart(len, '0');
+    const output = lines.slice();
+
+    // Mirror each tile row
+    tileRows.forEach(idx => {
       const hex = lines[idx].slice(1).trim();
       const bytes = hex.match(/.{2}/g) || [];
       bytes.reverse();
-      out[idx] = '#' + bytes.join('');
+      output[idx] = '#' + bytes.join('');
     });
 
-    // 6) flip any _X fields
-    out.forEach((l,i) => {
+    // Mirror any X-coordinate simple fields
+    output.forEach((l, i) => {
       const m = l.match(simpleFieldRE);
       if (m && m[1].endsWith('_X')) {
         const key = m[1], val = m[2];
-        const base = parseInt(val, 16);
-        // look for a matching width field (e.g. SP_STW for SP_STX)
+        const x = parseInt(val, 16);
         const wKey = key.slice(0, -1) + 'W';
         const w = fieldMap[wKey] ? parseInt(fieldMap[wKey], 16) : 0;
-        const flipped = pixelWidth - (base + w);
-        out[i] = `#${key} ${padHex(flipped, val.length)}`;
+        const newX = trackPixelWidth - (x + w);
+        output[i] = `#${key} ${padHex(newX, val.length)}`;
       }
     });
 
-    // 7) download blob
-    const blob = new Blob([out.join('\n')], {type:'text/plain'});
+    // Offer download
+    const blob = new Blob([output.join('\n')], {type: 'text/plain'});
     const url  = URL.createObjectURL(blob);
     const dl   = document.getElementById('downloadLink');
     dl.href        = url;
