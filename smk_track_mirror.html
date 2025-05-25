@@ -1,108 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>SMKC Track Mirror</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    input, button { margin-top: 10px; }
-    #downloadLink { display: block; margin-top: 10px; }
-  </style>
+<head><meta charset="UTF-8"><title>SMKC Mirror</title>
+<style>body{font-family:sans-serif;padding:20px}input,button{margin:8px 0}#download{display:block;margin-top:12px}</style>
 </head>
 <body>
-  <h2>SMKC Track Mirror Tool</h2>
-  <input type="file" id="fileInput" accept=".smkc">
-  <button id="mirrorBtn" disabled>Mirror Track</button>
-  <a id="downloadLink"></a>
+<h2>Super Mario Kart Track Mirror (.smkc)</h2>
+<input type="file" id="f" accept=".smkc">
+<button id="go" disabled>Mirror track</button>
+<a id="download"></a>
 
-  <script>
-  let originalText;
+<script>
+const simple = /^#([A-Z0-9_]+)\s+([0-9A-F]+)$/;
+const hexOnly = l => l.startsWith('#') && !simple.test(l) &&
+                     /^[0-9A-F]+$/.test(l.slice(1).trim());
 
-  document.getElementById('fileInput').addEventListener('change', e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      originalText = reader.result;
-      document.getElementById('mirrorBtn').disabled = false;
-      document.getElementById('downloadLink').style.display = 'none';
-    };
-    reader.readAsText(f);
+let original;
+
+f.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => { original = ev.target.result; go.disabled = false; download.style.display='none'; };
+  r.readAsText(file);
+};
+
+go.onclick = () => {
+  const lines = original.split(/\r?\n/);
+  const out   = lines.slice();
+
+  // locate #MAP … #OBJ (end of tile planes)
+  const mapIdx = lines.findIndex(l => l.trim()==='#MAP');
+  const objIdx = lines.findIndex((l,i)=> i>mapIdx && l.startsWith('#OBJ'));
+  if (mapIdx<0||objIdx<0) return alert('MAP / OBJ not found');
+
+  // width = bytes in first hex row / 2 (one byte per tile)
+  const firstRow = lines.slice(mapIdx+1).find(hexOnly);
+  const tileW    = firstRow.slice(1).trim().length/2;
+  const pxW      = tileW*16;
+
+  // collect simple fields to look up widths later
+  const fields={};
+  lines.forEach(l=>{const m=l.match(simple); if(m) fields[m[1]]=m[2];});
+
+  // process MAP
+  for(let i=mapIdx+1;i<objIdx;i++){
+    const l = lines[i];
+    if(hexOnly(l)){
+      const bytes = l.slice(1).trim().match(/.{2}/g)
+        .reverse()
+        .map(h => (parseInt(h,16)^0x40).toString(16).toUpperCase().padStart(2,'0'));
+      out[i] = '#'+bytes.join('');
+    }
+  }
+
+  // mirror *_X simple fields
+  out.forEach((l,idx)=>{
+    const m = l.match(simple);
+    if(m && m[1].endsWith('_X')){
+      const key=m[1], old=parseInt(m[2],16);
+      const wKey=key.slice(0,-1)+'W';
+      const w   = fields[wKey]?parseInt(fields[wKey],16):0;
+      const nx  = pxW - (old + w);
+      out[idx]=`#${key} ${nx.toString(16).toUpperCase().padStart(m[2].length,'0')}`;
+    }
   });
 
-  document.getElementById('mirrorBtn').addEventListener('click', () => {
-    const lines = originalText.split(/\r?\n/);
-    const simpleFieldRE = /^#([A-Z0-9_]+)\s+([0-9A-F]+)$/;
-
-    // Identify ALL pure-hex lines (no spaces, not simple fields)
-    const isHexOnly = l => {
-      if (!l.startsWith('#')) return false;
-      if (simpleFieldRE.test(l)) return false;
-      const hex = l.slice(1).trim();
-      return /^[0-9A-F]+$/.test(hex);
-    };
-    const hexLineIndices = lines.map((l,i) => isHexOnly(l) ? i : -1).filter(i => i >= 0);
-    if (hexLineIndices.length === 0) {
-      alert('No tile data found.');
-      return;
-    }
-
-    // Find first contiguous block of hex-only lines (the base-tile layer)
-    const start = hexLineIndices[0];
-    let end = start;
-    for (let i = 1; i < hexLineIndices.length; i++) {
-      if (hexLineIndices[i] === hexLineIndices[i-1] + 1) {
-        end = hexLineIndices[i];
-      } else break;
-    }
-    const tileRows = hexLineIndices.filter(idx => idx >= start && idx <= end);
-
-    // Get track width in tiles from the first row
-    const firstHex = lines[start].slice(1).trim();
-    const tileWidth = firstHex.length / 2;
-    const PIX_PER_TILE = 16;
-    const trackPixelWidth = tileWidth * PIX_PER_TILE;
-
-    // Gather simple fields for flipping coords
-    const fieldMap = {};
-    lines.forEach(l => {
-      const m = l.match(simpleFieldRE);
-      if (m) fieldMap[m[1]] = m[2];
-    });
-
-    const padHex = (num, len) => num.toString(16).toUpperCase().padStart(len, '0');
-    const output = lines.slice();
-
-    // Mirror each tile row
-    tileRows.forEach(idx => {
-      const hex = lines[idx].slice(1).trim();
-      const bytes = hex.match(/.{2}/g) || [];
-      bytes.reverse();
-      output[idx] = '#' + bytes.join('');
-    });
-
-    // Mirror any X-coordinate simple fields
-    output.forEach((l, i) => {
-      const m = l.match(simpleFieldRE);
-      if (m && m[1].endsWith('_X')) {
-        const key = m[1], val = m[2];
-        const x = parseInt(val, 16);
-        const wKey = key.slice(0, -1) + 'W';
-        const w = fieldMap[wKey] ? parseInt(fieldMap[wKey], 16) : 0;
-        const newX = trackPixelWidth - (x + w);
-        output[i] = `#${key} ${padHex(newX, val.length)}`;
-      }
-    });
-
-    // Offer download
-    const blob = new Blob([output.join('\n')], {type: 'text/plain'});
-    const url  = URL.createObjectURL(blob);
-    const dl   = document.getElementById('downloadLink');
-    dl.href        = url;
-    dl.download    = 'mirrored.smkc';
-    dl.textContent = '⤓ Download Mirrored File';
-    dl.style.display = 'inline-block';
-  });
-  </script>
+  const blob=new Blob([out.join('\n')],{type:'text/plain'});
+  download.href=URL.createObjectURL(blob);
+  download.download='mirrored.smkc';
+  download.textContent='⤓ Download mirrored.smkc';
+  download.style.display='inline-block';
+};
+</script>
 </body>
 </html>
