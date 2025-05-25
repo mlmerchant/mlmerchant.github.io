@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SMKC Track Mirror</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, button { margin-top: 10px; }
+    #downloadLink { display: block; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>SMKC Track Mirror Tool</h2>
+  <input type="file" id="fileInput" accept=".smkc">
+  <button id="mirrorBtn" disabled>Mirror Track</button>
+  <a id="downloadLink"></a>
+
+  <script>
+  // Load the file
+  document.getElementById('fileInput').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      window.originalText = ev.target.result;
+      document.getElementById('mirrorBtn').disabled = false;
+      document.getElementById('downloadLink').style.display = 'none';
+    };
+    reader.readAsText(file);
+  });
+
+  // Mirror logic
+  document.getElementById('mirrorBtn').addEventListener('click', function(){
+    const text = window.originalText;
+    const lines = text.split(/\r?\n/);
+
+    // 1) detect track width from first block‐data line
+    let tileCount = 0;
+    for (let l of lines) {
+      if (l.startsWith('#') && /^[0-9A-F]+$/.test(l.slice(1).trim())) {
+        tileCount = l.slice(1).trim().length / 2;
+        break;
+      }
+    }
+    if (!tileCount) {
+      alert('Cannot detect tile rows in this file.');
+      return;
+    }
+
+    // 2) assume 16 px tiles; adjust if needed
+    const TILE_SIZE = 16;
+    const pixelWidth = tileCount * TILE_SIZE;
+
+    // 3) collect all simple fields (#KEY HEX)
+    const simpleFieldRE = /^#([A-Z0-9_]+)\s+([0-9A-F]+)$/;
+    const fieldMap = {};
+    lines.forEach(l => {
+      const m = l.match(simpleFieldRE);
+      if (m) fieldMap[m[1]] = m[2];
+    });
+
+    // helper to zero-pad hex
+    function padHex(val, len) {
+      let s = val.toString(16).toUpperCase();
+      return s.padStart(len, '0');
+    }
+
+    // 4) process each line
+    const out = lines.map(l => {
+      let m;
+      // a) simple field
+      if (m = l.match(simpleFieldRE)) {
+        const key = m[1], val = m[2];
+        // any X‐coordinate flips
+        if (key.endsWith('_X')) {
+          const oldX = parseInt(val, 16);
+          const widthKey = key.replace(/X$/, 'W');
+          const w = fieldMap[widthKey] ? parseInt(fieldMap[widthKey], 16) : 0;
+          const newX = pixelWidth - (oldX + w);
+          const newVal = padHex(newX, val.length);
+          return `#${key} ${newVal}`;
+        }
+        return l;
+      }
+      // b) block‐data line (pure hex, no space)
+      if (l.startsWith('#') && /^[0-9A-F]+$/.test(l.slice(1).trim())) {
+        const hex = l.slice(1).trim();
+        const bytes = hex.match(/.{2}/g);
+        if (bytes) {
+          bytes.reverse();
+          return '#' + bytes.join('');
+        }
+        return l;
+      }
+      // c) everything else (blank lines, headers, non‐X fields)
+      return l;
+    });
+
+    // 5) offer download
+    const blob = new Blob([out.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const dl = document.getElementById('downloadLink');
+    dl.href = url;
+    dl.download = 'mirrored.smkc';
+    dl.textContent = '⤓ Download Mirrored File';
+    dl.style.display = 'inline-block';
+  });
+  </script>
+</body>
+</html>
