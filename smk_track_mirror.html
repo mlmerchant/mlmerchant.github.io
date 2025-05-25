@@ -1,75 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>SMKC Mirror</title>
-<style>body{font-family:sans-serif;padding:20px}input,button{margin:8px 0}#download{display:block;margin-top:12px}</style>
+<head>
+<meta charset="UTF-8">
+<title>SMKC Track Mirror</title>
+<style>
+ body{font-family:Segoe UI,Arial,sans-serif;padding:20px;max-width:750px}
+ input,button{margin-top:10px}
+ #dl{display:block;margin-top:12px}
+</style>
 </head>
 <body>
-<h2>Super Mario Kart Track Mirror (.smkc)</h2>
-<input type="file" id="f" accept=".smkc">
-<button id="go" disabled>Mirror track</button>
-<a id="download"></a>
+<h2>Super Mario Kart – Epic Edit Track Mirror</h2>
+
+<input type="file" id="file" accept=".smkc">
+<button id="run" disabled>Mirror track</button>
+<a id="dl"></a>
 
 <script>
-const simple = /^#([A-Z0-9_]+)\s+([0-9A-F]+)$/;
-const hexOnly = l => l.startsWith('#') && !simple.test(l) &&
-                     /^[0-9A-F]+$/.test(l.slice(1).trim());
+/* ------- helpers ------------------------------------------------------- */
+const SF = /^#([A-Z0-9_]+)\s+([0-9A-F]+)$/;          // simple field
+const HEXONLY = l => l.startsWith('#') && !SF.test(l)
+                            && /^[0-9A-F]+$/.test(l.slice(1).trim());
+const pad = (n,len) => n.toString(16).toUpperCase().padStart(len,'0');
 
-let original;
-
-f.onchange = e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const r = new FileReader();
-  r.onload = ev => { original = ev.target.result; go.disabled = false; download.style.display='none'; };
-  r.readAsText(file);
+/* ------- load file ----------------------------------------------------- */
+let rawText = '';
+file.onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = ev => { rawText = ev.target.result; run.disabled = false; dl.style.display='none'; };
+  rd.readAsText(f);
 };
 
-go.onclick = () => {
-  const lines = original.split(/\r?\n/);
-  const out   = lines.slice();
+/* ------- main ---------------------------------------------------------- */
+run.onclick = () => {
+  const lines = rawText.split(/\r?\n/);
+  const out   = lines.slice();                 // clone for editing
 
-  // locate #MAP … #OBJ (end of tile planes)
-  const mapIdx = lines.findIndex(l => l.trim()==='#MAP');
-  const objIdx = lines.findIndex((l,i)=> i>mapIdx && l.startsWith('#OBJ'));
-  if (mapIdx<0||objIdx<0) return alert('MAP / OBJ not found');
+  /* locate MAP-block ---------------------------------------------------- */
+  const mapIdx  = lines.indexOf('#MAP');
+  const gpexIdx = lines.indexOf('#GPEX');
+  if (mapIdx < 0 || gpexIdx < 0)
+        return alert('MAP or GPEX header not found.');
 
-  // width = bytes in first hex row / 2 (one byte per tile)
-  const firstRow = lines.slice(mapIdx+1).find(hexOnly);
-  const tileW    = firstRow.slice(1).trim().length/2;
-  const pxW      = tileW*16;
+  /* verify we really have 512 pure-hex lines (= 16 KiB) ----------------- */
+  const mapHex = lines.slice(mapIdx+1, gpexIdx)
+                      .filter(HEXONLY);
+  if (mapHex.length !== 512)
+        return alert('Unexpected MAP size – gave up.');
 
-  // collect simple fields to look up widths later
-  const fields={};
-  lines.forEach(l=>{const m=l.match(simple); if(m) fields[m[1]]=m[2];});
+  /* mirror each logical row -------------------------------------------- */
+  for (let row = 0; row < 128; row++) {
+    const segIdx = [...Array(4).keys()]
+                   .map(i => mapIdx + 1 + row*4 + i);
 
-  // process MAP
-  for(let i=mapIdx+1;i<objIdx;i++){
-    const l = lines[i];
-    if(hexOnly(l)){
-      const bytes = l.slice(1).trim().match(/.{2}/g)
-        .reverse()
-        .map(h => (parseInt(h,16)^0x40).toString(16).toUpperCase().padStart(2,'0'));
-      out[i] = '#'+bytes.join('');
+    /* 1. gather 4×32 bytes → 128 bytes --------------------------------- */
+    const rowBytes = segIdx.flatMap(idx => {
+      const h = lines[idx].slice(1).trim();
+      return h.match(/.{2}/g).map(b => parseInt(b,16));
+    });
+
+    /* 2. reverse & toggle H-flip (bit 6) ------------------------------- */
+    const mirrored = rowBytes.reverse().map(b => b ^ 0x40);
+
+    /* 3. split back & write ------------------------------------------- */
+    for (let k=0;k<4;k++){
+      const part = mirrored.slice(k*32,(k+1)*32)
+                           .map(b=>pad(b,2)).join('');
+      out[segIdx[k]] = '#'+part;
     }
   }
 
-  // mirror *_X simple fields
-  out.forEach((l,idx)=>{
-    const m = l.match(simple);
-    if(m && m[1].endsWith('_X')){
-      const key=m[1], old=parseInt(m[2],16);
-      const wKey=key.slice(0,-1)+'W';
-      const w   = fields[wKey]?parseInt(fields[wKey],16):0;
-      const nx  = pxW - (old + w);
-      out[idx]=`#${key} ${nx.toString(16).toUpperCase().padStart(m[2].length,'0')}`;
-    }
+  /* flip *_X simple fields --------------------------------------------- */
+  const WIDTH_PX = 128*16;                  // 2048 px
+  const fieldVal = {};
+  out.forEach(l => { const m = l.match(SF); if(m) fieldVal[m[1]]=m[2]; });
+
+  out.forEach((l,i)=>{
+    const m = l.match(SF);
+    if(!m || !m[1].endsWith('_X')) return;
+    const key=m[1], old=parseInt(m[2],16);
+    const wKey = key.slice(0,-1)+'W';
+    const w    = fieldVal[wKey] ? parseInt(fieldVal[wKey],16) : 0;
+    const nx   = WIDTH_PX - (old + w);
+    out[i] = `#${key} ${pad(nx,m[2].length)}`;
   });
 
-  const blob=new Blob([out.join('\n')],{type:'text/plain'});
-  download.href=URL.createObjectURL(blob);
-  download.download='mirrored.smkc';
-  download.textContent='⤓ Download mirrored.smkc';
-  download.style.display='inline-block';
+  /* offer download ------------------------------------------------------ */
+  const blob = new Blob([out.join('\n')],{type:'text/plain'});
+  dl.href = URL.createObjectURL(blob);
+  dl.download = 'mirrored.smkc';
+  dl.textContent = '⤓ Download mirrored.smkc';
+  dl.style.display = 'inline-block';
 };
 </script>
 </body>
