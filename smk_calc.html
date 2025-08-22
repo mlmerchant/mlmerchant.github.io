@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SMK / MKSC Time Sum</title>
+<style>
+  :root { --pad: 12px; --radius: 12px; --font: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font);
+    margin: 0; padding: 16px;
+    background: #0b0d10; color: #e6e9ef;
+  }
+  h1 { font-size: 1.1rem; margin: 0 0 8px 0; font-weight: 600; }
+  p.hint { margin: 0 0 16px 0; color: #aab2bf; font-size: 0.95rem; }
+  .card {
+    background: #12161b; border: 1px solid #222a33; border-radius: var(--radius);
+    padding: var(--pad); max-width: 640px; margin: 0 auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .row {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+    margin-bottom: 10px;
+  }
+  label { font-size: .95rem; color: #c8d1dc; }
+  input[type="text"] {
+    width: 100%; padding: 14px 12px; font-size: 1.05rem; line-height: 1;
+    border-radius: 10px; border: 2px solid #2a3440; background: #0d1116; color: #e6e9ef;
+    outline: none;
+  }
+  input[type="text"]::placeholder { color: #6b7683; }
+  input.valid { border-color: #20c997; box-shadow: 0 0 0 3px rgba(32,201,151,.15); }
+  input.invalid { border-color: #e03131; box-shadow: 0 0 0 3px rgba(224,49,49,.15); background: #170e11; }
+  .total {
+    margin-top: 14px; padding: 14px; border-radius: 10px; background: #0e1319; border: 1px solid #243140;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .total .label { color: #aab2bf; font-size: .95rem; }
+  .total .value {
+    font-variant-numeric: tabular-nums; font-size: 1.4rem; letter-spacing: .5px;
+    padding: 6px 10px; border-radius: 8px; background: #101821; border: 1px solid #2a3a4a;
+  }
+  .note { color: #8a94a3; font-size: .85rem; margin-top: 8px; }
+  @media (min-width: 520px) {
+    .row { grid-template-columns: 140px 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>SMK / MKSC Total Time Calculator</h1>
+    <p class="hint">Enter each race as: <code>minutes seconds centiseconds</code> (e.g., <code>1 0 85</code>). Five boxes are provided; it’s fine to leave one blank for MKSC’s 4 tracks.</p>
+
+    <div class="row">
+      <label for="t1">Race 1</label>
+      <input id="t1" type="text" inputmode="numeric" placeholder="e.g., 1 10 34" aria-label="Race 1 time: minutes seconds centiseconds">
+    </div>
+    <div class="row">
+      <label for="t2">Race 2</label>
+      <input id="t2" type="text" inputmode="numeric" placeholder="e.g., 0 58 12" aria-label="Race 2 time: minutes seconds centiseconds">
+    </div>
+    <div class="row">
+      <label for="t3">Race 3</label>
+      <input id="t3" type="text" inputmode="numeric" placeholder="e.g., 2 05 07" aria-label="Race 3 time: minutes seconds centiseconds">
+    </div>
+    <div class="row">
+      <label for="t4">Race 4</label>
+      <input id="t4" type="text" inputmode="numeric" placeholder="e.g., 1 00 85" aria-label="Race 4 time: minutes seconds centiseconds">
+    </div>
+    <div class="row">
+      <label for="t5">Race 5</label>
+      <input id="t5" type="text" inputmode="numeric" placeholder="(optional)" aria-label="Race 5 time: minutes seconds centiseconds">
+    </div>
+
+    <div class="total" role="status" aria-live="polite">
+      <div class="label">Total (valid lines only):</div>
+      <div id="totalOut" class="value">0' 00" 00</div>
+    </div>
+    <div class="note">Empty or incorrectly formatted lines are highlighted and excluded from the sum. Seconds must be 0–59; centiseconds 0–99.</div>
+  </div>
+
+<script>
+(function () {
+  const inputs = Array.from(document.querySelectorAll('input[type="text"]'));
+  const out = document.getElementById('totalOut');
+
+  const parseLine = (s) => {
+    if (!s || !s.trim()) return { ok: false, reason: 'empty' };
+    const m = s.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s*$/);
+    if (!m) return { ok: false, reason: 'format' };
+    const min = Number(m[1]), sec = Number(m[2]), cs = Number(m[3]);
+    if (!Number.isInteger(min) || !Number.isInteger(sec) || !Number.isInteger(cs)) return { ok: false, reason: 'nan' };
+    if (sec < 0 || sec > 59 || cs < 0 || cs > 99 || min < 0) return { ok: false, reason: 'range' };
+    return { ok: true, min, sec, cs };
+  };
+
+  const toTotalString = (totalCs) => {
+    // totalCs is in centiseconds
+    const totalSeconds = Math.floor(totalCs / 100);
+    const cs = totalCs % 100;
+    const min = Math.floor(totalSeconds / 60);
+    const sec = totalSeconds % 60;
+    const pad2 = (n) => String(n).padStart(2, '0');
+    return `${min}' ${pad2(sec)}" ${pad2(cs)}`;
+  };
+
+  const recompute = () => {
+    let sumCs = 0;
+    inputs.forEach(inp => {
+      const { ok, min, sec, cs } = parseLine(inp.value);
+      inp.classList.remove('valid', 'invalid');
+      if (ok) {
+        inp.classList.add('valid');
+        sumCs += (min * 60 * 100) + (sec * 100) + cs;
+      } else {
+        // Highlight both empty and invalid lines
+        inp.classList.add('invalid');
+      }
+    });
+    out.textContent = toTotalString(sumCs);
+  };
+
+  inputs.forEach(inp => inp.addEventListener('input', recompute));
+  // Initial paint
+  recompute();
+})();
+</script>
+</body>
+</html>
