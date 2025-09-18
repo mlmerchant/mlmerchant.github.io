@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF Link Extractor → CSV</title>
+  <style>
+    :root { --fg: #0f172a; --muted:#475569; --bg:#fff; --accent:#0ea5e9; }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;color:var(--fg);background:var(--bg);margin:0;}
+    header{padding:24px 20px;border-bottom:1px solid #e2e8f0;}
+    h1{margin:0;font-size:22px}
+    main{max-width:980px;margin:0 auto;padding:20px;}
+    .card{border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin:12px 0;box-shadow:0 1px 0 rgba(2,6,23,.04)}
+    label{font-weight:600}
+    input[type="file"]{display:block;margin-top:8px}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    button{border:0;background:var(--accent);color:white;font-weight:600;padding:10px 14px;border-radius:10px;cursor:pointer}
+    button[disabled]{opacity:.5;cursor:not-allowed}
+    .muted{color:var(--muted);font-size:13px}
+    .log{white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;padding:10px;border-radius:10px;max-height:220px;overflow:auto}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left;vertical-align:top}
+    th{position:sticky;top:0;background:#fafafa}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#ecfeff;color:#0369a1;border:1px solid #bae6fd;font-size:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PDF Link Extractor → CSV</h1>
+    <div class="muted">Upload a PDF. This tool finds link annotations and pairs them with nearby text to produce a downloadable CSV.</div>
+  </header>
+  <main>
+    <section class="card">
+      <label for="file">PDF file</label>
+      <input id="file" type="file" accept="application/pdf" />
+      <div class="row" style="margin-top:10px">
+        <button id="extract" disabled>Extract links</button>
+        <button id="download" disabled>Download CSV</button>
+        <span id="count" class="pill" style="display:none"></span>
+      </div>
+      <div id="note" class="muted" style="margin-top:8px">Runs fully in your browser using PDF.js. No upload to a server.</div>
+    </section>
+
+    <section class="card">
+      <strong>Preview</strong>
+      <div id="previewWrap" class="muted" style="margin-top:8px">No data yet.</div>
+      <div style="overflow:auto; max-height:360px; margin-top:8px">
+        <table id="preview" style="display:none">
+          <thead>
+            <tr><th>page</th><th>text</th><th>url</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <strong>Log</strong>
+      <div id="log" class="log" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <!-- PDF.js (ESM) -->
+  <script type="module">
+    import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.mjs";
+    // Ensure the worker can be loaded. For ESM builds, set the workerSrc explicitly for broad CDN compatibility.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
+
+    const $ = (id)=>document.getElementById(id);
+    const fileInput = $("file");
+    const btnExtract = $("extract");
+    const btnDownload = $("download");
+    const logEl = $("log");
+    const previewTable = $("preview");
+    const previewWrap = $("previewWrap");
+    const countPill = $("count");
+
+    let results = [];
+
+    function log(msg){ logEl.textContent += msg + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+
+    fileInput.addEventListener('change', ()=>{
+      btnExtract.disabled = !fileInput.files?.length;
+      btnDownload.disabled = true;
+      results = [];
+      previewTable.style.display = 'none';
+      previewWrap.textContent = 'No data yet.';
+      $("preview").querySelector('tbody').innerHTML = '';
+      countPill.style.display = 'none';
+      logEl.textContent = '';
+    });
+
+    btnExtract.addEventListener('click', async ()=>{
+      const file = fileInput.files?.[0];
+      if(!file){ return; }
+      btnExtract.disabled = true;
+      btnDownload.disabled = true;
+      results = [];
+      log(`Reading: ${file.name} (${Math.round(file.size/1024)} KB)`);
+
+      const arrayBuf = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuf });
+      const pdf = await loadingTask.promise;
+      log(`Pages: ${pdf.numPages}`);
+
+      for(let p=1;p<=pdf.numPages;p++){
+        const page = await pdf.getPage(p);
+        const vp = page.getViewport({ scale: 1.0 });
+        const annots = await page.getAnnotations({ intent: 'display' });
+        const textContent = await page.getTextContent();
+        const items = textContent.items; // array of text items with .str and .transform
+
+        // Precompute simple bounding boxes for text items in viewport coords
+        const textBoxes = items.map((it)=>{ // transform = [a,b,c,d,e,f]
+          const [a,b,c,d,e,f] = it.transform;
+          const x = e, y = f; // origin
+          const w = (it.width ?? 0) * a; // width scale
+          const h = Math.abs(d);         // height approx
+          return { str: it.str, x1:x, y1:y, x2:x+w, y2:y+h };
+        });
+
+        // For each link annotation, map to overlapping text
+        for(const a of annots){
+          if(a.subtype !== 'Link') continue;
+
+          const url = a.url || a.unsafeUrl || (a.dest ? `#dest:${JSON.stringify(a.dest)}` : (a.action ?? null));
+
+          // Build one or more rectangles for the link annotation
+          let rects = [];
+          if(Array.isArray(a.quadPoints) && a.quadPoints.length >= 8){
+            for(let i=0; i<a.quadPoints.length; i+=8){
+              const q = a.quadPoints.slice(i, i+8);
+              const xs = [q[0],q[2],q[4],q[6]];
+              const ys = [q[1],q[3],q[5],q[7]];
+              const pts = xs.map((x, idx)=> vp.convertToViewportPoint(x, ys[idx]));
+              const Xs = pts.map(pt=>pt[0]);
+              const Ys = pts.map(pt=>pt[1]);
+              rects.push([Math.min(...Xs), Math.min(...Ys), Math.max(...Xs), Math.max(...Ys)]);
+            }
+          } else if (a.rect){
+            const r = vp.convertToViewportRectangle(a.rect);
+            rects.push([r[0][0], r[0][1], r[1][0], r[1][1]]);
+          }
+
+          // Slightly inflate rects to tolerate small misalignments
+          rects = rects.map(([x1,y1,x2,y2])=>[x1-1,y1-1,x2+1,y2+1]);
+
+          // Collect text that overlaps any rectangle
+          const parts = [];
+          for(const [rx1,ry1,rx2,ry2] of rects){
+            for(const tb of textBoxes){
+              const ix1 = Math.max(rx1, tb.x1), iy1 = Math.max(ry1, tb.y1);
+              const ix2 = Math.min(rx2, tb.x2), iy2 = Math.min(ry2, tb.y2);
+              if(ix2 >= ix1 && iy2 >= iy1){
+                if(tb.str && tb.str.trim()) parts.push(tb.str.trim());
+              }
+            }
+          }
+          const text = parts.join(' ').replace(/\s+/g,' ').trim() || '';
+          results.push({ page:p, text, url: url ?? '' });
+        }
+        log(`Page ${p}: ${annots.length} annotations, ${results.length} links total`);
+      }
+
+      // Update preview
+      const tbody = $("preview").querySelector('tbody');
+      tbody.innerHTML = '';
+      const maxRows = Math.min(50, results.length);
+      for(let i=0;i<maxRows;i++){
+        const r = results[i];
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = String(r.page);
+        const td2 = document.createElement('td'); td2.textContent = r.text; 
+        const td3 = document.createElement('td'); td3.textContent = r.url; 
+        tr.append(td1,td2,td3); tbody.appendChild(tr);
+      }
+      previewWrap.textContent = results.length ? `Showing ${maxRows} of ${results.length} rows` : 'No links found.';
+      previewTable.style.display = results.length ? 'table' : 'none';
+      countPill.textContent = results.length + ' links';
+      countPill.style.display = results.length ? 'inline-block' : 'none';
+
+      btnDownload.disabled = results.length === 0;
+      btnExtract.disabled = false;
+    });
+
+    btnDownload.addEventListener('click', ()=>{
+      if(!results.length) return;
+      const esc = (v)=> '"' + String(v ?? '').replace(/"/g,'""') + '"';
+      const header = ['page','text','url'];
+      const rows = results.map(r=> [r.page, r.text, r.url].map(esc).join(','));
+      const csv = header.join(',') + '\n' + rows.join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'pdf_links.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+  </script>
+</body>
+</html>
