@@ -16,3 +16,6 @@
 
 ### System Tools
 [ISO Creator - wrap files into iso image](iso_creator.html)
+
+### Card Games
+[Poker Squares Grader](poker_squares_grader.html)
