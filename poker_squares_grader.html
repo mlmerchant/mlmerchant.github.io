@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Poker Squares Grader</title>
+<style>
+  :root {
+    --pad: 12px;
+    --radius: 12px;
+    --font: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font);
+    margin: 0;
+    padding: 16px;
+    background: #0b0d10;
+    color: #e6e9ef;
+  }
+  h1 {
+    font-size: 1.1rem;
+    margin: 0 0 8px 0;
+    font-weight: 600;
+  }
+  p.hint {
+    margin: 0 0 16px 0;
+    color: #aab2bf;
+    font-size: 0.95rem;
+  }
+  .card {
+    background: #12161b;
+    border: 1px solid #222a33;
+    border-radius: var(--radius);
+    padding: var(--pad);
+    max-width: 720px;
+    margin: 0 auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  label {
+    font-size: .95rem;
+    color: #c8d1dc;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 14px 12px;
+    font-size: 1.05rem;
+    line-height: 1;
+    border-radius: 10px;
+    border: 2px solid #2a3440;
+    background: #0d1116;
+    color: #e6e9ef;
+    outline: none;
+  }
+  input[type="text"]::placeholder { color: #6b7683; }
+  input.valid {
+    border-color: #20c997;
+    box-shadow: 0 0 0 3px rgba(32,201,151,.15);
+  }
+  input.invalid {
+    border-color: #e03131;
+    box-shadow: 0 0 0 3px rgba(224,49,49,.15);
+    background: #170e11;
+  }
+  .section-title {
+    margin: 18px 0 10px 0;
+    font-size: 0.95rem;
+    color: #aab2bf;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .totals {
+    margin-top: 16px;
+    display: grid;
+    gap: 10px;
+  }
+  .total {
+    padding: 14px;
+    border-radius: 10px;
+    background: #0e1319;
+    border: 1px solid #243140;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .total .label {
+    color: #aab2bf;
+    font-size: .95rem;
+  }
+  .total .value {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.35rem;
+    letter-spacing: .4px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #101821;
+    border: 1px solid #2a3a4a;
+  }
+  .note {
+    color: #8a94a3;
+    font-size: .85rem;
+    margin-top: 10px;
+  }
+  .system-note {
+    color: #8a94a3;
+    font-size: .82rem;
+    margin-top: 4px;
+  }
+  @media (min-width: 560px) {
+    .row { grid-template-columns: 180px 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Poker Squares Grader</h1>
+    <p class="hint">Enter the total number of each hand type found across all 5 rows and 5 columns. Boxes accept whole numbers only. The grader calculates both American and English totals.</p>
+
+    <div class="section-title">Hand counts</div>
+
+    <div class="row">
+      <label for="royalFlush">Royal Flushes</label>
+      <input id="royalFlush" type="text" inputmode="numeric" placeholder="e.g., 0" aria-label="Royal flushes">
+    </div>
+    <div class="row">
+      <label for="straightFlush">Straight Flushes</label>
+      <input id="straightFlush" type="text" inputmode="numeric" placeholder="e.g., 1" aria-label="Straight flushes">
+    </div>
+    <div class="row">
+      <label for="fourKind">Four of a Kind</label>
+      <input id="fourKind" type="text" inputmode="numeric" placeholder="e.g., 0" aria-label="Four of a kind">
+    </div>
+    <div class="row">
+      <label for="fullHouse">Full Houses</label>
+      <input id="fullHouse" type="text" inputmode="numeric" placeholder="e.g., 2" aria-label="Full houses">
+    </div>
+    <div class="row">
+      <label for="flush">Flushes</label>
+      <input id="flush" type="text" inputmode="numeric" placeholder="e.g., 1" aria-label="Flushes">
+    </div>
+    <div class="row">
+      <label for="straight">Straights</label>
+      <input id="straight" type="text" inputmode="numeric" placeholder="e.g., 3" aria-label="Straights">
+    </div>
+    <div class="row">
+      <label for="threeKind">Three of a Kind</label>
+      <input id="threeKind" type="text" inputmode="numeric" placeholder="e.g., 2" aria-label="Three of a kind">
+    </div>
+    <div class="row">
+      <label for="twoPairs">Two Pairs</label>
+      <input id="twoPairs" type="text" inputmode="numeric" placeholder="e.g., 1" aria-label="Two pairs">
+    </div>
+    <div class="row">
+      <label for="onePair">One Pairs</label>
+      <input id="onePair" type="text" inputmode="numeric" placeholder="e.g., 4" aria-label="One pairs">
+    </div>
+
+    <div class="totals" role="status" aria-live="polite">
+      <div class="total">
+        <div>
+          <div class="label">American total</div>
+          <div class="system-note">100 / 75 / 50 / 25 / 20 / 15 / 10 / 5 / 2</div>
+        </div>
+        <div id="americanOut" class="value">0</div>
+      </div>
+
+      <div class="total">
+        <div>
+          <div class="label">English total</div>
+          <div class="system-note">30 / 30 / 16 / 10 / 5 / 12 / 6 / 3 / 1</div>
+        </div>
+        <div id="englishOut" class="value">0</div>
+      </div>
+    </div>
+
+    <div class="note">Blank or invalid fields are highlighted and treated as 0. This grader only totals the hand counts you enter; it does not classify rows or columns for you.</div>
+  </div>
+
+<script>
+(function () {
+  const fields = [
+    { id: 'royalFlush', american: 100, english: 30 },
+    { id: 'straightFlush', american: 75, english: 30 },
+    { id: 'fourKind', american: 50, english: 16 },
+    { id: 'fullHouse', american: 25, english: 10 },
+    { id: 'flush', american: 20, english: 5 },
+    { id: 'straight', american: 15, english: 12 },
+    { id: 'threeKind', american: 10, english: 6 },
+    { id: 'twoPairs', american: 5, english: 3 },
+    { id: 'onePair', american: 2, english: 1 }
+  ];
+
+  const americanOut = document.getElementById('americanOut');
+  const englishOut = document.getElementById('englishOut');
+
+  function parseWholeNumber(value) {
+    const trimmed = value.trim();
+    if (!trimmed) return { ok: false, reason: 'empty', value: 0 };
+    if (!/^\d+$/.test(trimmed)) return { ok: false, reason: 'format', value: 0 };
+
+    const n = Number(trimmed);
+    if (!Number.isInteger(n) || n < 0) return { ok: false, reason: 'range', value: 0 };
+
+    return { ok: true, value: n };
+  }
+
+  function recompute() {
+    let americanTotal = 0;
+    let englishTotal = 0;
+
+    fields.forEach(field => {
+      const input = document.getElementById(field.id);
+      const parsed = parseWholeNumber(input.value);
+
+      input.classList.remove('valid', 'invalid');
+
+      if (parsed.ok) {
+        input.classList.add('valid');
+        americanTotal += parsed.value * field.american;
+        englishTotal += parsed.value * field.english;
+      } else {
+        input.classList.add('invalid');
+      }
+    });
+
+    americanOut.textContent = String(americanTotal);
+    englishOut.textContent = String(englishTotal);
+  }
+
+  fields.forEach(field => {
+    const input = document.getElementById(field.id);
+    input.addEventListener('input', recompute);
+  });
+
+  recompute();
+})();
+</script>
+</body>
+</html>
