@@ -136,7 +136,7 @@
         // Populate the dropdown with the maximum possible laps
         const lapsDropdown = document.getElementById('laps');
         const maxLaps = 127; // Max value for signed 8-bit integer (128 including 0 for N+128 calculation)
-        for (let i = 1; i <= maxLaps; i++) {
+        for (let i = 0; i <= maxLaps; i++) {
             const option = document.createElement('option');
             option.value = i;
             option.textContent = i;
