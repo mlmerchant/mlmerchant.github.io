@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMK Mario Multiplier</title>
+    <style>
+        body {
+            font-family: "Courier New", Courier, monospace;
+            background-color: #C0C0C0;
+            color: black;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 640px;
+            margin: 20px auto;
+            background-color: white;
+            border: 2px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            text-decoration: underline;
+        }
+        p {
+            font-size: 14px;
+        }
+        input, button {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            border: 1px solid black;
+            padding: 5px;
+            background-color: #E0E0E0;
+        }
+        button {
+            cursor: pointer;
+            background-color: #C0C0C0;
+        }
+        a {
+            font-family: "Courier New", Courier, monospace;
+            color: blue;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            border-top: 1px solid black;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SMK Bank Mirroring Tool</h1>
+        <p>This tool mirrors data from 0x2000-0x7FFF (Mario) to all other character slots except Luigi.</p>
+        
+        <input type="file" id="fileInput" accept=".smc, .sfc" /><br>
+        <button id="modifyButton">Apply Mirrors and Download</button>
+        <p id="status"></p>
+    </div>
+
+    <footer>
+        <p>Copyright (C) 2025 Matthew Merchant</p>
+        <p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
+        <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</p>
+    </footer>
+
+    <script>
+        document.getElementById('modifyButton').addEventListener('click', async () => {
+            const fileInput = document.getElementById('fileInput');
+            const status = document.getElementById('status');
+
+            if (!fileInput.files[0]) {
+                status.textContent = "Please upload a file first.";
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            let byteArray = new Uint8Array(arrayBuffer);
+
+            // 1. Detect Header (SMC style 512 bytes)
+            // SMK usually has a check at 0x1ED93 (No Header) or 0x1EF93 (Headered)
+            const checkValue = 0x85;
+            const checkOffsetBase = 0x1ED93;
+            let headerOffset = 0;
+
+            if (byteArray[checkOffsetBase] === checkValue) {
+                headerOffset = 0;
+            } else if (byteArray[checkOffsetBase + 0x200] === checkValue) {
+                headerOffset = 0x200;
+            } else {
+                status.textContent = "Error: ROM verification failed. Could not find expected data.";
+                return;
+            }
+
+            // 2. Define Source Range (2000 -> 7FFF)
+            const srcStart = 0x2000 + headerOffset;
+            const srcEnd = 0x7FFF + headerOffset;
+            const blockSize = srcEnd - srcStart + 1;
+
+            // Extract the source data block
+            const sourceBlock = byteArray.slice(srcStart, srcEnd + 1);
+
+            // 3. Define Destination Offsets
+            const destinations = [
+                0x12000, 0x22000, 0x32000, 
+                0x42000, 0x52000, 0x62000
+            ];
+
+            // 4. Perform the copy
+            try {
+                destinations.forEach(destBase => {
+                    const finalDest = destBase + headerOffset;
+                    // Ensure the ROM is large enough to receive the data
+                    if (finalDest + blockSize <= byteArray.length) {
+                        byteArray.set(sourceBlock, finalDest);
+                    }
+                });
+
+                // Create download
+                const modifiedBlob = new Blob([byteArray], { type: 'application/octet-stream' });
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(modifiedBlob);
+                downloadLink.download = `mirrored_${file.name}`;
+                downloadLink.textContent = "Download Mirrored ROM";
+                downloadLink.style.display = "block";
+
+                status.textContent = "Success! Banks mirrored correctly.";
+                status.appendChild(downloadLink);
+            } catch (err) {
+                status.textContent = "An error occurred during modification.";
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>
