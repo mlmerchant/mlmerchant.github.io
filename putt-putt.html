@@ -134,6 +134,7 @@ button {
   </div>
 </div>
 
+<!-- Replace only the <script> block with this version -->
 <script>
 (function () {
   const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
@@ -144,6 +145,9 @@ button {
   const spareBtn = document.getElementById("spareBtn");
   const newBtn = document.getElementById("newBtn");
   const message = document.getElementById("message");
+
+  const COLS = 7;
+  const ROWS = 4;
 
   let tableau = [];
   let spare = [];
@@ -169,16 +173,32 @@ button {
     return ranks.indexOf(card);
   }
 
-  function isLegal(card) {
+  function isAdjacent(card) {
     if (!card || !discard) return false;
 
     const c = rankIndex(card);
     const d = rankIndex(discard);
 
-    const up = (d + 1) % 13;
-    const down = (d + 12) % 13;
+    return c === (d + 1) % 13 || c === (d + 12) % 13;
+  }
 
-    return c === up || c === down;
+  function isLowestInColumn(index) {
+    const col = index % COLS;
+    const row = Math.floor(index / COLS);
+
+    for (let r = row + 1; r < ROWS; r++) {
+      const belowIndex = r * COLS + col;
+      if (tableau[belowIndex] && !tableau[belowIndex].gone) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function isLegal(index) {
+    const slot = tableau[index];
+    return slot && !slot.gone && isLowestInColumn(index) && isAdjacent(slot.card);
   }
 
   function deal() {
@@ -196,11 +216,10 @@ button {
   }
 
   function playCard(index) {
-    const slot = tableau[index];
-    if (!slot || slot.gone || !isLegal(slot.card)) return;
+    if (!isLegal(index)) return;
 
-    discard = slot.card;
-    slot.gone = true;
+    discard = tableau[index].card;
+    tableau[index].gone = true;
     render();
   }
 
@@ -226,8 +245,6 @@ button {
       if (slot.gone) {
         btn.classList.add("gone");
         btn.disabled = true;
-      } else if (isLegal(slot.card)) {
-        btn.classList.add("legal");
       } else {
         btn.classList.add("illegal");
       }
@@ -237,7 +254,7 @@ button {
     });
 
     const remaining = tableau.filter(x => !x.gone).length;
-    const legalMoves = tableau.some(x => !x.gone && isLegal(x.card));
+    const legalMoves = tableau.some((x, i) => isLegal(i));
 
     if (remaining === 0) {
       message.innerHTML = '<span class="win">Board cleared.</span>';
@@ -246,7 +263,7 @@ button {
     } else if (!legalMoves) {
       message.textContent = "No legal moves. Draw a spare card.";
     } else {
-      message.textContent = "Play one above or below the discard. K connects to A.";
+      message.textContent = "Play the lowest exposed card in a column if it is one above or below the discard. K connects to A.";
     }
   }
 
@@ -256,5 +273,6 @@ button {
   deal();
 })();
 </script>
+
 </body>
 </html>
