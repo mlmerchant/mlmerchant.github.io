@@ -5,74 +5,43 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Putt Putt</title>
 <style>
-:root {
-  --pad: 12px;
-  --radius: 14px;
-  --font: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
+:root { --pad: 12px; --radius: 14px; --font: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 * { box-sizing: border-box; }
 body {
-  margin: 0;
-  padding: 14px;
+  margin: 0; padding: 14px;
   font-family: var(--font);
-  background: #0b0d10;
-  color: #e6e9ef;
+  background: #0b0d10; color: #e6e9ef;
 }
 .card {
-  max-width: 440px;
-  margin: 0 auto;
-  padding: var(--pad);
-  background: #12161b;
-  border: 1px solid #222a33;
+  max-width: 440px; margin: 0 auto; padding: var(--pad);
+  background: #12161b; border: 1px solid #222a33;
   border-radius: var(--radius);
   box-shadow: 0 8px 24px rgba(0,0,0,.35);
 }
-h1 {
-  margin: 0 0 10px;
-  font-size: 1.15rem;
-  font-weight: 650;
-}
+h1 { margin: 0 0 10px; font-size: 1.15rem; font-weight: 650; }
 .topbar {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 12px;
 }
 .status {
-  background: #0e1319;
-  border: 1px solid #243140;
-  border-radius: 12px;
-  padding: 10px;
+  background: #0e1319; border: 1px solid #243140;
+  border-radius: 12px; padding: 10px;
 }
-.status .label {
-  color: #aab2bf;
-  font-size: .8rem;
-  margin-bottom: 4px;
-}
-.status .value {
-  font-size: 1.35rem;
-  font-variant-numeric: tabular-nums;
-}
+.status .label { color: #aab2bf; font-size: .8rem; margin-bottom: 4px; }
+.status .value { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 button {
   touch-action: manipulation;
-  border: 0;
-  border-radius: 12px;
-  font-family: inherit;
-  font-weight: 700;
+  border: 0; border-radius: 12px;
+  font-family: inherit; font-weight: 700;
 }
-#spareBtn, #newBtn {
-  width: 100%;
-  padding: 14px 10px;
-  margin-bottom: 10px;
+#spareBtn, #hintBtn {
+  width: 100%; padding: 14px 10px; margin-bottom: 10px;
   font-size: 1rem;
-  background: #101821;
-  color: #e6e9ef;
+  background: #101821; color: #e6e9ef;
   border: 1px solid #2a3a4a;
 }
-#spareBtn:active, #newBtn:active { transform: scale(.98); }
-#spareBtn:disabled {
-  opacity: .45;
-}
+#spareBtn:active, #hintBtn:active { transform: scale(.98); }
+#spareBtn:disabled { opacity: .45; }
 .board {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -80,33 +49,21 @@ button {
   margin-top: 8px;
 }
 .cardBtn {
-  min-height: 52px;
-  font-size: 1.15rem;
+  min-height: 50px;
+  font-size: 1.05rem;
   background: #18202a;
   color: #e6e9ef;
   border: 2px solid #2a3440;
 }
-.cardBtn.legal {
-  border-color: #20c997;
-  box-shadow: 0 0 0 3px rgba(32,201,151,.15);
-  background: #10251f;
-}
-.cardBtn.illegal {
-  opacity: .55;
-}
-.cardBtn.gone {
-  visibility: hidden;
-}
+.cardBtn.illegal { opacity: .55; }
+.cardBtn.gone { visibility: hidden; }
 .note {
-  color: #8a94a3;
-  font-size: .85rem;
+  color: #aab2bf;
+  font-size: .88rem;
   margin-top: 10px;
   line-height: 1.35;
 }
-.win {
-  color: #20c997;
-  font-weight: 700;
-}
+.win { color: #20c997; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -125,16 +82,13 @@ button {
   </div>
 
   <button id="spareBtn">Draw Spare Card</button>
-  <button id="newBtn">New Game</button>
+  <button id="hintBtn">Hints</button>
 
   <div id="board" class="board"></div>
 
-  <div id="message" class="note">
-    Clear the board by playing cards one rank above or below the discard. K connects to A.
-  </div>
+  <div id="message" class="note"></div>
 </div>
 
-<!-- Replace only the <script> block with this version -->
 <script>
 (function () {
   const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
@@ -143,11 +97,11 @@ button {
   const discardOut = document.getElementById("discardOut");
   const spareOut = document.getElementById("spareOut");
   const spareBtn = document.getElementById("spareBtn");
-  const newBtn = document.getElementById("newBtn");
+  const hintBtn = document.getElementById("hintBtn");
   const message = document.getElementById("message");
 
   const COLS = 7;
-  const ROWS = 4;
+  const ROWS = 5;
 
   let tableau = [];
   let spare = [];
@@ -188,9 +142,7 @@ button {
 
     for (let r = row + 1; r < ROWS; r++) {
       const belowIndex = r * COLS + col;
-      if (tableau[belowIndex] && !tableau[belowIndex].gone) {
-        return false;
-      }
+      if (tableau[belowIndex] && !tableau[belowIndex].gone) return false;
     }
 
     return true;
@@ -201,17 +153,22 @@ button {
     return slot && !slot.gone && isLowestInColumn(index) && isAdjacent(slot.card);
   }
 
+  function legalMoveCount() {
+    return tableau.filter((_, i) => isLegal(i)).length;
+  }
+
   function deal() {
     const deck = shuffle(makeDeck());
 
-    tableau = deck.slice(0, 28).map((card, idx) => ({
+    tableau = deck.slice(0, COLS * ROWS).map((card, idx) => ({
       id: idx,
       card,
       gone: false
     }));
 
-    discard = deck[28];
-    spare = deck.slice(29);
+    discard = deck[COLS * ROWS];
+    spare = deck.slice((COLS * ROWS) + 1);
+
     render();
   }
 
@@ -230,6 +187,20 @@ button {
     render();
   }
 
+  function showHints() {
+    const moves = tableau
+      .map((slot, i) => isLegal(i) ? slot.card : null)
+      .filter(Boolean);
+
+    if (moves.length === 0) {
+      message.textContent = "No legal moves. Draw a spare card if any remain. Refresh the page for a new game.";
+    } else {
+      message.textContent =
+        "Legal moves: " + moves.join(", ") +
+        ". Play only the lowest exposed card in a column if it is one rank above or below the discard. K connects to A. Refresh the page for a new game.";
+    }
+  }
+
   function render() {
     board.innerHTML = "";
 
@@ -239,14 +210,12 @@ button {
 
     tableau.forEach((slot, index) => {
       const btn = document.createElement("button");
-      btn.className = "cardBtn";
+      btn.className = "cardBtn illegal";
       btn.textContent = slot.card;
 
       if (slot.gone) {
         btn.classList.add("gone");
         btn.disabled = true;
-      } else {
-        btn.classList.add("illegal");
       }
 
       btn.addEventListener("click", () => playCard(index));
@@ -254,25 +223,22 @@ button {
     });
 
     const remaining = tableau.filter(x => !x.gone).length;
-    const legalMoves = tableau.some((x, i) => isLegal(i));
+    const moves = legalMoveCount();
 
     if (remaining === 0) {
-      message.innerHTML = '<span class="win">Board cleared.</span>';
-    } else if (!legalMoves && spare.length === 0) {
-      message.textContent = "No legal moves and no spare cards left.";
-    } else if (!legalMoves) {
-      message.textContent = "No legal moves. Draw a spare card.";
+      message.innerHTML = '<span class="win">Board cleared.</span> Refresh the page for a new game.';
+    } else if (moves === 0) {
+      message.textContent = "No legal moves. Draw a spare card if any remain. Refresh the page for a new game.";
     } else {
-      message.textContent = "Play the lowest exposed card in a column if it is one above or below the discard. K connects to A.";
+      message.textContent = "Legal moves available: " + moves + ". Tap Hints for details.";
     }
   }
 
   spareBtn.addEventListener("click", drawSpare);
-  newBtn.addEventListener("click", deal);
+  hintBtn.addEventListener("click", showHints);
 
   deal();
 })();
 </script>
-
 </body>
 </html>
