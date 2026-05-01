@@ -227,10 +227,8 @@ button {
 
     if (remaining === 0) {
       message.innerHTML = '<span class="win">Board cleared.</span> Refresh the page for a new game.';
-    } else if (moves === 0) {
-      message.textContent = "No legal moves. Draw a spare card if any remain. Refresh the page for a new game.";
     } else {
-      message.textContent = "Legal moves available: " + moves + ". Tap Hints for details.";
+      message.textContent = "";
     }
   }
 
