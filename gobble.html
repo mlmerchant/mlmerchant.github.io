@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gobble Grid</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #151922;
+    --panel2: #1c2230;
+    --text: #e8edf7;
+    --muted: #9aa7bb;
+    --line: #2b3446;
+    --x: #7cc7ff;
+    --o: #ffb37c;
+    --danger: #ff6b6b;
+    --ok: #9be28f;
+    --shadow: 0 14px 35px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: radial-gradient(circle at top, #151b27 0%, var(--bg) 52%, #07080a 100%);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .app {
+    width: min(760px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  header, .controls, .status, .rules {
+    background: rgba(21,25,34,.94);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  header {
+    padding: 14px 16px;
+  }
+
+  h1 {
+    font-size: 1.25rem;
+    margin: 0 0 4px;
+    letter-spacing: .3px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: .92rem;
+    line-height: 1.35;
+  }
+
+  .status {
+    padding: 12px 14px;
+    min-height: 62px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .main-status {
+    font-size: 1.05rem;
+    font-weight: 750;
+  }
+
+  .sub-status {
+    color: var(--muted);
+    font-size: .9rem;
+  }
+
+  .board-wrap {
+    background: rgba(10,12,17,.7);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  .cell {
+    position: relative;
+    border: 2px solid #344057;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #121722, #0e121a);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .cell:hover { border-color: #60708e; }
+  .cell:disabled { cursor: default; opacity: .92; }
+
+  .cell.selected-source {
+    outline: 4px solid rgba(155,226,143,.75);
+    outline-offset: -6px;
+  }
+
+  .cell.legal-target {
+    box-shadow: inset 0 0 0 4px rgba(124,199,255,.28);
+  }
+
+  .piece {
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    line-height: 1;
+    border: 3px solid rgba(255,255,255,.72);
+    box-shadow: inset 0 -8px 18px rgba(0,0,0,.25), 0 8px 20px rgba(0,0,0,.25);
+    user-select: none;
+  }
+
+  .piece.small { width: 42%; height: 42%; font-size: clamp(1rem, 5vw, 2rem); }
+  .piece.medium { width: 62%; height: 62%; font-size: clamp(1.4rem, 7vw, 3rem); }
+  .piece.large { width: 82%; height: 82%; font-size: clamp(1.8rem, 9vw, 4rem); }
+  .piece.X { background: linear-gradient(145deg, #177dc0, var(--x)); color: #06111a; }
+  .piece.O { background: linear-gradient(145deg, #c96924, var(--o)); color: #1c0d03; }
+
+  .stack-count {
+    position: absolute;
+    top: 6px;
+    right: 7px;
+    font-size: .72rem;
+    color: var(--muted);
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px;
+    padding: 1px 6px;
+  }
+
+  .controls {
+    padding: 12px;
+  }
+
+  .turn-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: .92rem;
+  }
+
+  .reserve-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .reserve-btn {
+    min-height: 72px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(145deg, var(--panel2), #111722);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 750;
+    position: relative;
+  }
+
+  .reserve-btn:hover { border-color: #60708e; }
+  .reserve-btn:disabled { opacity: .38; cursor: default; }
+  .reserve-btn.selected {
+    outline: 4px solid rgba(155,226,143,.75);
+    outline-offset: -5px;
+  }
+
+  .mini-piece {
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.65);
+    display: inline-grid;
+    place-items: center;
+    font-weight: 900;
+  }
+
+  .mini-piece.small { width: 24px; height: 24px; }
+  .mini-piece.medium { width: 34px; height: 34px; }
+  .mini-piece.large { width: 44px; height: 44px; }
+  .mini-piece.X { background: var(--x); color: #06111a; }
+  .mini-piece.O { background: var(--o); color: #1c0d03; }
+
+  .count-badge {
+    position: absolute;
+    bottom: 7px;
+    right: 9px;
+    color: var(--muted);
+    font-size: .78rem;
+  }
+
+  .rules {
+    padding: 12px 14px;
+    color: var(--muted);
+    font-size: .88rem;
+    line-height: 1.38;
+  }
+
+  .rules strong { color: var(--text); }
+
+  @media (max-width: 520px) {
+    body { padding: 8px; }
+    .board { gap: 6px; }
+    .board-wrap { padding: 8px; }
+    .cell { border-radius: 12px; }
+    .reserve-row { gap: 7px; }
+    .reserve-btn { min-height: 64px; font-size: .84rem; }
+    .turn-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Gobble Grid</h1>
+    <div class="subtitle">4×4 tic-tac-toe with small, medium, and large pieces. Bigger pieces cover smaller pieces. No stack inspection.</div>
+  </header>
+
+  <section class="status" aria-live="polite">
+    <div id="mainStatus" class="main-status"></div>
+    <div id="subStatus" class="sub-status"></div>
+  </section>
+
+  <section class="board-wrap">
+    <div id="board" class="board"></div>
+  </section>
+
+  <section class="controls">
+    <div class="turn-row">
+      <div id="turnLabel"></div>
+      <div>Choose a reserve piece below, or click one of your top pieces to move it.</div>
+    </div>
+    <div class="reserve-row">
+      <button class="reserve-btn" data-size="1" id="reserveSmall"></button>
+      <button class="reserve-btn" data-size="2" id="reserveMedium"></button>
+      <button class="reserve-btn" data-size="3" id="reserveLarge"></button>
+    </div>
+  </section>
+
+  <section class="rules">
+    <strong>Rules:</strong> On your turn, place a reserve piece or move one of your own visible pieces. A piece may move to an empty square or cover a smaller visible piece. If moving your piece reveals an opponent 4-in-a-row, you lose immediately. If your move creates your own 4-in-a-row without first revealing an opponent win, you win. Refresh the page for a new game.
+  </section>
+</div>
+
+<script>
+(() => {
+  const SIZE_NAMES = { 1: 'Small', 2: 'Medium', 3: 'Large' };
+  const SIZE_CLASSES = { 1: 'small', 2: 'medium', 3: 'large' };
+  const PLAYERS = ['X', 'O'];
+  const LINES = [
+    [0,1,2,3], [4,5,6,7], [8,9,10,11], [12,13,14,15],
+    [0,4,8,12], [1,5,9,13], [2,6,10,14], [3,7,11,15],
+    [0,5,10,15], [3,6,9,12]
+  ];
+
+  let board = Array.from({ length: 16 }, () => []);
+  let reserves = {
+    X: { 1: 4, 2: 4, 3: 4 },
+    O: { 1: 4, 2: 4, 3: 4 }
+  };
+  let current = 'X';
+  let selectedReserveSize = null;
+  let selectedSource = null;
+  let gameOver = false;
+  let message = '';
+
+  const boardEl = document.getElementById('board');
+  const mainStatus = document.getElementById('mainStatus');
+  const subStatus = document.getElementById('subStatus');
+  const turnLabel = document.getElementById('turnLabel');
+  const reserveButtons = {
+    1: document.getElementById('reserveSmall'),
+    2: document.getElementById('reserveMedium'),
+    3: document.getElementById('reserveLarge')
+  };
+
+  function opponent(player) {
+    return player === 'X' ? 'O' : 'X';
+  }
+
+  function topPiece(index) {
+    const stack = board[index];
+    return stack.length ? stack[stack.length - 1] : null;
+  }
+
+  function visibleOwner(index) {
+    const top = topPiece(index);
+    return top ? top.player : null;
+  }
+
+  function hasWin(player) {
+    return LINES.some(line => line.every(i => visibleOwner(i) === player));
+  }
+
+  function legalTarget(size, targetIndex, sourceIndex = null) {
+    if (targetIndex === sourceIndex) return false;
+    const top = topPiece(targetIndex);
+    return !top || top.size < size;
+  }
+
+  function legalMoveSources() {
+    const sources = [];
+    for (let i = 0; i < 16; i++) {
+      const top = topPiece(i);
+      if (top && top.player === current) sources.push(i);
+    }
+    return sources;
+  }
+
+  function hasAnyLegalMove() {
+    for (const size of [1,2,3]) {
+      if (reserves[current][size] > 0) {
+        for (let i = 0; i < 16; i++) if (legalTarget(size, i)) return true;
+      }
+    }
+    for (const source of legalMoveSources()) {
+      const piece = topPiece(source);
+      for (let i = 0; i < 16; i++) if (legalTarget(piece.size, i, source)) return true;
+    }
+    return false;
+  }
+
+  function clearSelection() {
+    selectedReserveSize = null;
+    selectedSource = null;
+  }
+
+  function setMessage(text) {
+    message = text;
+  }
+
+  function win(player, reason) {
+    gameOver = true;
+    clearSelection();
+    setMessage(`${player} wins. ${reason}`);
+  }
+
+  function draw(reason) {
+    gameOver = true;
+    clearSelection();
+    setMessage(`Draw. ${reason}`);
+  }
+
+  function endTurn() {
+    current = opponent(current);
+    clearSelection();
+    if (!hasAnyLegalMove()) {
+      draw(`${current} has no legal moves.`);
+    }
+  }
+
+  function applyReserveMove(size, target) {
+    if (reserves[current][size] <= 0) {
+      setMessage(`No ${SIZE_NAMES[size].toLowerCase()} pieces left.`);
+      return;
+    }
+    if (!legalTarget(size, target)) {
+      setMessage(`${SIZE_NAMES[size]} cannot go there.`);
+      return;
+    }
+
+    board[target].push({ player: current, size });
+    reserves[current][size]--;
+
+    if (hasWin(current)) {
+      win(current, 'Four visible pieces in a row.');
+      return;
+    }
+    endTurn();
+  }
+
+  function applyBoardMove(source, target) {
+    const moving = topPiece(source);
+    if (!moving || moving.player !== current) {
+      setMessage('Select one of your visible pieces.');
+      return;
+    }
+    if (!legalTarget(moving.size, target, source)) {
+      setMessage(`${SIZE_NAMES[moving.size]} cannot move there.`);
+      return;
+    }
+
+    const moved = board[source].pop();
+
+    // Your house rule: if lifting the piece reveals an opponent win, you fail first.
+    const opp = opponent(current);
+    if (hasWin(opp)) {
+      win(opp, `${current} uncovered ${opp}'s four-in-a-row.`);
+      return;
+    }
+
+    board[target].push(moved);
+
+    if (hasWin(current)) {
+      win(current, 'Four visible pieces in a row.');
+      return;
+    }
+    if (hasWin(opp)) {
+      win(opp, `${current}'s move left ${opp} with four-in-a-row.`);
+      return;
+    }
+    endTurn();
+  }
+
+  function handleCellClick(index) {
+    if (gameOver) return;
+
+    const top = topPiece(index);
+
+    if (selectedReserveSize) {
+      applyReserveMove(selectedReserveSize, index);
+      render();
+      return;
+    }
+
+    if (selectedSource !== null) {
+      if (selectedSource === index) {
+        clearSelection();
+        setMessage('Selection cleared.');
+        render();
+        return;
+      }
+      applyBoardMove(selectedSource, index);
+      render();
+      return;
+    }
+
+    if (top && top.player === current) {
+      selectedSource = index;
+      setMessage(`Selected ${current}'s ${SIZE_NAMES[top.size].toLowerCase()} piece to move.`);
+    } else if (top) {
+      setMessage(`That is ${opponent(current)}'s visible piece. Choose a reserve piece if you want to cover it.`);
+    } else {
+      setMessage('Empty square selected. Choose a reserve piece first, or move one of your visible pieces here.');
+    }
+    render();
+  }
+
+  function handleReserveClick(size) {
+    if (gameOver) return;
+    if (reserves[current][size] <= 0) {
+      setMessage(`No ${SIZE_NAMES[size].toLowerCase()} pieces left.`);
+      render();
+      return;
+    }
+    selectedSource = null;
+    selectedReserveSize = selectedReserveSize === size ? null : size;
+    setMessage(selectedReserveSize ? `Selected ${current}'s ${SIZE_NAMES[size].toLowerCase()} reserve piece.` : 'Selection cleared.');
+    render();
+  }
+
+  function renderPiece(piece, mini = false) {
+    const div = document.createElement('div');
+    div.className = `${mini ? 'mini-piece' : 'piece'} ${SIZE_CLASSES[piece.size]} ${piece.player}`;
+    div.textContent = piece.player;
+    return div;
+  }
+
+  function renderBoard() {
+    boardEl.innerHTML = '';
+    for (let i = 0; i < 16; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'cell';
+      btn.type = 'button';
+      btn.disabled = gameOver;
+      btn.addEventListener('click', () => handleCellClick(i));
+
+      const top = topPiece(i);
+      if (top) btn.appendChild(renderPiece(top));
+
+      if (board[i].length > 1) {
+        const stackCount = document.createElement('div');
+        stackCount.className = 'stack-count';
+        stackCount.textContent = `stack ${board[i].length}`;
+        btn.appendChild(stackCount);
+      }
+
+      if (selectedSource === i) btn.classList.add('selected-source');
+
+      if (!gameOver) {
+        if (selectedReserveSize && legalTarget(selectedReserveSize, i)) {
+          btn.classList.add('legal-target');
+        }
+        if (selectedSource !== null) {
+          const moving = topPiece(selectedSource);
+          if (moving && legalTarget(moving.size, i, selectedSource)) btn.classList.add('legal-target');
+        }
+      }
+
+      boardEl.appendChild(btn);
+    }
+  }
+
+  function renderReserves() {
+    for (const size of [1,2,3]) {
+      const btn = reserveButtons[size];
+      btn.innerHTML = '';
+      btn.disabled = gameOver || reserves[current][size] <= 0;
+      btn.className = 'reserve-btn' + (selectedReserveSize === size ? ' selected' : '');
+      btn.onclick = () => handleReserveClick(size);
+
+      btn.appendChild(renderPiece({ player: current, size }, true));
+
+      const label = document.createElement('span');
+      label.textContent = SIZE_NAMES[size];
+      btn.appendChild(label);
+
+      const count = document.createElement('span');
+      count.className = 'count-badge';
+      count.textContent = `${reserves[current][size]} left`;
+      btn.appendChild(count);
+    }
+  }
+
+  function renderStatus() {
+    if (gameOver) {
+      mainStatus.textContent = message;
+      subStatus.textContent = 'Game over. Refresh the page to start a new game.';
+    } else {
+      mainStatus.textContent = message || `${current}'s turn.`;
+      subStatus.textContent = selectedReserveSize
+        ? `Place ${current}'s ${SIZE_NAMES[selectedReserveSize].toLowerCase()} piece on an empty square or over a smaller visible piece.`
+        : selectedSource !== null
+          ? `Move ${current}'s selected piece to an empty square or over a smaller visible piece.`
+          : 'Choose a reserve piece, or click one of your own visible pieces to move it.';
+    }
+
+    turnLabel.textContent = gameOver
+      ? 'No active turn.'
+      : `${current}'s turn — Reserve: Small ${reserves[current][1]}, Medium ${reserves[current][2]}, Large ${reserves[current][3]}`;
+  }
+
+  function render() {
+    renderStatus();
+    renderBoard();
+    renderReserves();
+  }
+
+  setMessage("X's turn.");
+  render();
+})();
+</script>
+</body>
+</html>
