@@ -20,4 +20,6 @@
 ### Card Games
 [Poker Squares Grader](poker_squares_grader.html)
 
+[Poker Squares Game](poker_squares.html]
+
 [Putt Putt Card Game](putt-putt.html)
