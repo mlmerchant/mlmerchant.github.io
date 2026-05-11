@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Poker Squares</title>
+<style>
+:root { --pad: 12px; --radius: 14px; --font: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 14px;
+  font-family: var(--font);
+  background: #0b0d10; color: #e6e9ef;
+}
+.wrap {
+  max-width: 440px; margin: 0 auto; padding: var(--pad);
+  background: #12161b; border: 1px solid #222a33;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+h1 { margin: 0 0 10px; font-size: 1.15rem; font-weight: 650; }
+.topbar {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px; margin-bottom: 12px;
+}
+.status {
+  background: #0e1319; border: 1px solid #243140;
+  border-radius: 12px; padding: 10px;
+}
+.status .label { color: #aab2bf; font-size: .78rem; margin-bottom: 4px; }
+.status .value { font-size: 1.25rem; font-variant-numeric: tabular-nums; min-height: 1.55rem; }
+.board {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  margin-top: 8px;
+}
+.cell {
+  min-height: 58px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 750;
+  background: #18202a;
+  color: #e6e9ef;
+  border: 2px solid #2a3440;
+  touch-action: manipulation;
+}
+.cell:active:not(:disabled) { transform: scale(.98); }
+.cell:disabled { opacity: 1; }
+.empty { color: #56616f; font-weight: 500; }
+.s0 { color: #ff4d4d; }
+.s1 { color: #4da3ff; }
+.s2 { color: #47d16c; }
+.s3 { color: #f2c94c; }
+.results {
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.results.show { display: grid; }
+.scoreBox {
+  background: #0e1319; border: 1px solid #243140;
+  border-radius: 12px; padding: 10px;
+}
+.scoreBox .label { color: #aab2bf; font-size: .8rem; margin-bottom: 4px; }
+.scoreBox .value { font-size: 1.45rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Poker Squares</h1>
+
+  <div class="topbar">
+    <div class="status">
+      <div class="label">Next</div>
+      <div id="nextOut" class="value">—</div>
+    </div>
+    <div class="status">
+      <div class="label">Cards</div>
+      <div id="countOut" class="value">25</div>
+    </div>
+    <div class="status">
+      <div class="label">Placed</div>
+      <div id="placedOut" class="value">0</div>
+    </div>
+  </div>
+
+  <div id="board" class="board"></div>
+
+  <div id="results" class="results">
+    <div class="scoreBox">
+      <div class="label">American</div>
+      <div id="americanOut" class="value">0</div>
+    </div>
+    <div class="scoreBox">
+      <div class="label">British</div>
+      <div id="britishOut" class="value">0</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const suitMarks = ["●","◆","■","▲"];
+
+  const americanScores = {
+    royalFlush: 100,
+    straightFlush: 75,
+    fourKind: 50,
+    fullHouse: 25,
+    flush: 20,
+    straight: 15,
+    threeKind: 10,
+    twoPair: 5,
+    onePair: 2,
+    highCard: 0
+  };
+
+  const britishScores = {
+    royalFlush: 30,
+    straightFlush: 30,
+    fourKind: 16,
+    fullHouse: 10,
+    flush: 5,
+    straight: 12,
+    threeKind: 6,
+    twoPair: 3,
+    onePair: 1,
+    highCard: 0
+  };
+
+  const board = document.getElementById("board");
+  const nextOut = document.getElementById("nextOut");
+  const countOut = document.getElementById("countOut");
+  const placedOut = document.getElementById("placedOut");
+  const results = document.getElementById("results");
+  const americanOut = document.getElementById("americanOut");
+  const britishOut = document.getElementById("britishOut");
+
+  let deck = [];
+  let grid = Array(25).fill(null);
+  let cursor = 0;
+  let done = false;
+
+  function makeDeck() {
+    const cards = [];
+    for (let s = 0; s < 4; s++) {
+      for (let r = 0; r < ranks.length; r++) {
+        cards.push({ rank: ranks[r], rankIndex: r, suit: s });
+      }
+    }
+    return cards;
+  }
+
+  function shuffle(cards) {
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+    return cards;
+  }
+
+  function cardText(card) {
+    return card ? card.rank + suitMarks[card.suit] : "";
+  }
+
+  function scoreHand(hand, table) {
+    const rankCounts = new Map();
+    const suitCounts = new Map();
+    const vals = hand.map(c => c.rankIndex).sort((a, b) => a - b);
+
+    for (const c of hand) {
+      rankCounts.set(c.rankIndex, (rankCounts.get(c.rankIndex) || 0) + 1);
+      suitCounts.set(c.suit, (suitCounts.get(c.suit) || 0) + 1);
+    }
+
+    const counts = Array.from(rankCounts.values()).sort((a, b) => b - a);
+    const flush = suitCounts.size === 1;
+    const lowStraight = vals.join(",") === "0,1,2,3,4";
+    const highStraight = vals.join(",") === "0,9,10,11,12";
+    const normalStraight = vals.every((v, i) => i === 0 || v === vals[i - 1] + 1);
+    const straight = lowStraight || highStraight || normalStraight;
+    const royal = flush && highStraight;
+
+    if (royal) return table.royalFlush;
+    if (flush && straight) return table.straightFlush;
+    if (counts[0] === 4) return table.fourKind;
+    if (counts[0] === 3 && counts[1] === 2) return table.fullHouse;
+    if (flush) return table.flush;
+    if (straight) return table.straight;
+    if (counts[0] === 3) return table.threeKind;
+    if (counts[0] === 2 && counts[1] === 2) return table.twoPair;
+    if (counts[0] === 2) return table.onePair;
+    return table.highCard;
+  }
+
+  function hands() {
+    const lines = [];
+    for (let r = 0; r < 5; r++) lines.push(grid.slice(r * 5, r * 5 + 5));
+    for (let c = 0; c < 5; c++) lines.push([grid[c], grid[c + 5], grid[c + 10], grid[c + 15], grid[c + 20]]);
+    return lines;
+  }
+
+  function scoreAll(table) {
+    return hands().reduce((sum, hand) => sum + scoreHand(hand, table), 0);
+  }
+
+  function place(index) {
+    if (done || grid[index]) return;
+    grid[index] = deck[cursor];
+    cursor++;
+    if (cursor >= 25) done = true;
+    render();
+  }
+
+  function render() {
+    board.innerHTML = "";
+    nextOut.innerHTML = done ? "—" : renderCard(deck[cursor]);
+    countOut.textContent = 25 - cursor;
+    placedOut.textContent = cursor;
+
+    grid.forEach((card, index) => {
+      const btn = document.createElement("button");
+      btn.className = "cell";
+      if (card) {
+        btn.innerHTML = renderCard(card);
+        btn.disabled = true;
+      } else {
+        btn.textContent = "·";
+        btn.classList.add("empty");
+        btn.addEventListener("click", () => place(index));
+      }
+      board.appendChild(btn);
+    });
+
+    if (done) {
+      americanOut.textContent = scoreAll(americanScores);
+      britishOut.textContent = scoreAll(britishScores);
+      results.classList.add("show");
+    }
+  }
+
+  function renderCard(card) {
+    return '<span class="s' + card.suit + '">' + cardText(card) + '</span>';
+  }
+
+  deck = shuffle(makeDeck()).slice(0, 25);
+  render();
+})();
+</script>
+</body>
+</html>
