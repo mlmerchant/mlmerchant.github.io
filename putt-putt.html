@@ -34,14 +34,20 @@ button {
   border: 0; border-radius: 12px;
   font-family: inherit; font-weight: 700;
 }
-#spareBtn, #hintBtn {
+#spareBtn, #hintBtn, #resetBtn {
   width: 100%; padding: 14px 10px; margin-bottom: 10px;
   font-size: 1rem;
   background: #101821; color: #e6e9ef;
   border: 1px solid #2a3a4a;
 }
-#spareBtn:active, #hintBtn:active { transform: scale(.98); }
+#spareBtn:active, #hintBtn:active, #resetBtn:active { transform: scale(.98); }
 #spareBtn:disabled { opacity: .45; }
+
+#resetBtn {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
 .board {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -87,6 +93,8 @@ button {
   <div id="board" class="board"></div>
 
   <div id="message" class="note"></div>
+
+  <button id="resetBtn">Reset Game</button>
 </div>
 
 <script>
@@ -98,6 +106,7 @@ button {
   const spareOut = document.getElementById("spareOut");
   const spareBtn = document.getElementById("spareBtn");
   const hintBtn = document.getElementById("hintBtn");
+  const resetBtn = document.getElementById("resetBtn");
   const message = document.getElementById("message");
 
   const COLS = 7;
@@ -223,10 +232,9 @@ button {
     });
 
     const remaining = tableau.filter(x => !x.gone).length;
-    const moves = legalMoveCount();
 
     if (remaining === 0) {
-      message.innerHTML = '<span class="win">Board cleared.</span> Refresh the page for a new game.';
+      message.innerHTML = '<span class="win">Board cleared.</span> Reset for a new game.';
     } else {
       message.textContent = "";
     }
@@ -234,6 +242,7 @@ button {
 
   spareBtn.addEventListener("click", drawSpare);
   hintBtn.addEventListener("click", showHints);
+  resetBtn.addEventListener("click", deal);
 
   deal();
 })();
